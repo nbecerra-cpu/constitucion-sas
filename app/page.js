@@ -10,7 +10,7 @@ export default function ConstitucionSAS() {
   const [uploadProgress, setUploadProgress] = useState({});
   
   // URL del Google Apps Script - REEMPLAZAR CON TU URL
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/TU_SCRIPT_ID/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzmaxbrjGJoCo3PAb25HcB9u8BkiOIJUy5ZgFFIAxzZbGAo_LAwtOuewhHh4rZvcEeI/exec';
   
   const [formData, setFormData] = useState({
     nombreEmpresa: '',
