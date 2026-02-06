@@ -6,11 +6,16 @@ export default function ConstitucionSAS() {
   const [currentView, setCurrentView] = useState('landing');
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [trackingCode, setTrackingCode] = useState(null);
+  const [trackingCode, setTrackingCode] = useState('');
   const [uploadProgress, setUploadProgress] = useState({});
   
-  // URL del Google Apps Script - REEMPLAZAR CON TU URL
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzmaxbrjGJoCo3PAb25HcB9u8BkiOIJUy5ZgFFIAxzZbGAo_LAwtOuewhHh4rZvcEeI/exec';
+  // Estados para tracking
+  const [trackingData, setTrackingData] = useState(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingError, setTrackingError] = useState(null);
+  
+  // ⚠️ REEMPLAZA ESTA URL CON LA TUYA DE GOOGLE APPS SCRIPT
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwkoHMBlomaB3DJ_kGuGxjUXmqTavXie5YKHeQUoqQo1XDckNo5wBS6SNCKOk79BU3C/exec';
   
   const [formData, setFormData] = useState({
     nombreEmpresa: '',
@@ -25,11 +30,20 @@ export default function ConstitucionSAS() {
     capitalPagado: '1000000',
     accionistas: [{
       id: 1,
+      // V4: Nuevo campo tipo persona
+      tipoPersona: 'natural',
+      // Campos persona natural
       nombres: '',
       tipoDocumento: 'CC',
       numeroDocumento: '',
       lugarExpedicion: '',
       nacionalidad: 'Colombiana',
+      // Campos persona jurídica
+      razonSocial: '',
+      nit: '',
+      repLegalNombres: '',
+      repLegalCedula: '',
+      // Campos comunes
       ciudadDomicilio: '',
       direccionResidencia: '',
       email: '',
@@ -47,11 +61,11 @@ export default function ConstitucionSAS() {
       numeroDocumento: '',
       lugarExpedicion: '',
     },
-    aceptaTerminos: false,
+    aceptaPolitica: false,
   });
 
   const tieneExtranjeros = formData.accionistas.some(a => 
-    a.nacionalidad.toLowerCase() !== 'colombiana' && a.nacionalidad !== ''
+    a.tipoPersona === 'natural' && a.nacionalidad.toLowerCase() !== 'colombiana' && a.nacionalidad !== ''
   );
 
   const totalPorcentaje = formData.accionistas.reduce((sum, a) => sum + (parseFloat(a.porcentaje) || 0), 0);
@@ -77,17 +91,14 @@ export default function ConstitucionSAS() {
     });
   };
 
-  // Manejar subida de documento
   const handleFileUpload = async (index, file) => {
     if (!file) return;
     
-    // Validar tamaño (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       alert('El archivo es muy grande. Máximo 10MB.');
       return;
     }
     
-    // Validar tipo
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
     if (!allowedTypes.includes(file.type)) {
       alert('Formato no válido. Usa PDF, JPG o PNG.');
@@ -96,7 +107,6 @@ export default function ConstitucionSAS() {
     
     setUploadProgress(prev => ({ ...prev, [index]: 'loading' }));
     
-    // Convertir a Base64
     const reader = new FileReader();
     reader.onload = (e) => {
       const base64 = e.target.result.split(',')[1];
@@ -118,11 +128,16 @@ export default function ConstitucionSAS() {
       ...prev,
       accionistas: [...prev.accionistas, {
         id: Date.now(),
+        tipoPersona: 'natural',
         nombres: '',
         tipoDocumento: 'CC',
         numeroDocumento: '',
         lugarExpedicion: '',
         nacionalidad: 'Colombiana',
+        razonSocial: '',
+        nit: '',
+        repLegalNombres: '',
+        repLegalCedula: '',
         ciudadDomicilio: '',
         direccionResidencia: '',
         email: '',
@@ -151,35 +166,120 @@ export default function ConstitucionSAS() {
   const handleCapitalPreset = (preset) => {
     const presets = {
       startup: { autorizado: '100000000', suscrito: '1000000', pagado: '1000000' },
-      pequeña: { autorizado: '500000000', suscrito: '10000000', pagado: '10000000' },
-      mediana: { autorizado: '1000000000', suscrito: '50000000', pagado: '50000000' },
+      pyme: { autorizado: '500000000', suscrito: '50000000', pagado: '50000000' },
+      grande: { autorizado: '1000000000', suscrito: '100000000', pagado: '100000000' },
+      personalizado: { autorizado: formData.capitalAutorizado, suscrito: formData.capitalSuscrito, pagado: formData.capitalPagado }
     };
-    if (presets[preset]) {
-      setFormData(prev => ({
-        ...prev,
-        capitalPreset: preset,
-        capitalAutorizado: presets[preset].autorizado,
-        capitalSuscrito: presets[preset].suscrito,
-        capitalPagado: presets[preset].pagado,
-      }));
-    } else {
-      setFormData(prev => ({ ...prev, capitalPreset: 'personalizado' }));
+    
+    setFormData(prev => ({
+      ...prev,
+      capitalPreset: preset,
+      capitalAutorizado: presets[preset].autorizado,
+      capitalSuscrito: presets[preset].suscrito,
+      capitalPagado: presets[preset].pagado,
+    }));
+  };
+
+  const validateStep = (step) => {
+    switch(step) {
+      case 1:
+        if (!formData.nombreEmpresa.trim()) {
+          alert('Ingresa el nombre de la empresa');
+          return false;
+        }
+        if (!formData.objetoSocial.trim()) {
+          alert('Describe el objeto social / actividad económica');
+          return false;
+        }
+        if (!formData.ciudadSociedad.trim()) {
+          alert('Ingresa la ciudad de la sociedad');
+          return false;
+        }
+        return true;
+      case 2:
+        for (let i = 0; i < formData.accionistas.length; i++) {
+          const acc = formData.accionistas[i];
+          
+          if (acc.tipoPersona === 'natural') {
+            if (!acc.nombres.trim()) {
+              alert(`Ingresa los nombres del accionista ${i + 1}`);
+              return false;
+            }
+            if (!acc.numeroDocumento.trim()) {
+              alert(`Ingresa el número de documento del accionista ${i + 1}`);
+              return false;
+            }
+          } else {
+            // Persona jurídica
+            if (!acc.razonSocial.trim()) {
+              alert(`Ingresa la razón social del accionista ${i + 1}`);
+              return false;
+            }
+            if (!acc.nit.trim()) {
+              alert(`Ingresa el NIT del accionista ${i + 1}`);
+              return false;
+            }
+            if (!acc.repLegalNombres.trim()) {
+              alert(`Ingresa el nombre del representante legal del accionista ${i + 1}`);
+              return false;
+            }
+            if (!acc.repLegalCedula.trim()) {
+              alert(`Ingresa la cédula del representante legal del accionista ${i + 1}`);
+              return false;
+            }
+          }
+          
+          if (!acc.email.trim()) {
+            alert(`Ingresa el email del accionista ${i + 1}`);
+            return false;
+          }
+        }
+        if (Math.abs(totalPorcentaje - 100) > 0.01) {
+          alert(`Los porcentajes deben sumar 100%. Actualmente suman ${totalPorcentaje}%`);
+          return false;
+        }
+        return true;
+      case 3:
+        if (!formData.aceptaPolitica) {
+          alert('Debes aceptar la política de tratamiento de datos');
+          return false;
+        }
+        return true;
+      default:
+        return true;
     }
   };
 
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, 4));
+    }
+  };
+
+  const prevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const generateTrackingCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = 'DL-';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
   const handleSubmit = async () => {
+    if (!validateStep(3)) return;
+    
     setIsSubmitting(true);
+    const newTrackingCode = generateTrackingCode();
     
     try {
-      // Generar código de seguimiento
-      const code = `DL-${Date.now().toString(36).toUpperCase().slice(-8)}`;
-      
-      // Preparar datos para enviar
-      const dataToSend = {
-        trackingCode: code,
-        fechaSolicitud: new Date().toISOString(),
+      const payload = {
+        trackingCode: newTrackingCode,
         empresa: {
-          nombre: formData.nombreEmpresa,
+          nombre: formData.nombreEmpresa.toUpperCase(),
           objetoSocial: formData.objetoSocial,
           ciudad: formData.ciudadSociedad,
           direccion: formData.direccionSociedad,
@@ -191,21 +291,26 @@ export default function ConstitucionSAS() {
           suscrito: formData.capitalSuscrito,
           pagado: formData.capitalPagado,
           valorAccion: '1000',
-          numAccionesAutorizado: Math.floor(parseInt(formData.capitalAutorizado) / 1000),
-          numAccionesSuscrito: Math.floor(parseInt(formData.capitalSuscrito) / 1000),
-          numAccionesPagado: Math.floor(parseInt(formData.capitalPagado) / 1000),
         },
         accionistas: formData.accionistas.map(acc => ({
-          nombres: acc.nombres,
+          tipoPersona: acc.tipoPersona,
+          // Campos persona natural
+          nombres: acc.nombres.toUpperCase(),
           tipoDocumento: acc.tipoDocumento,
           numeroDocumento: acc.numeroDocumento,
           lugarExpedicion: acc.lugarExpedicion,
           nacionalidad: acc.nacionalidad,
+          // Campos persona jurídica
+          razonSocial: acc.razonSocial?.toUpperCase() || '',
+          nit: acc.nit || '',
+          repLegalNombres: acc.repLegalNombres?.toUpperCase() || '',
+          repLegalCedula: acc.repLegalCedula || '',
+          // Campos comunes
           ciudadDomicilio: acc.ciudadDomicilio,
           direccionResidencia: acc.direccionResidencia,
           email: acc.email,
           telefono: acc.telefono,
-          porcentaje: acc.porcentaje,
+          porcentaje: parseFloat(acc.porcentaje),
           esGerente: acc.esGerente,
           documentoFileName: acc.documentoFileName,
           documentoBase64: acc.documentoBase64,
@@ -214,578 +319,1744 @@ export default function ConstitucionSAS() {
         tieneExtranjeros: tieneExtranjeros,
       };
       
-      // Enviar a Google Apps Script
       const response = await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
-        mode: 'no-cors', // Necesario para Google Apps Script
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dataToSend),
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
       
-      setTrackingCode(code);
-      setCurrentView('success');
+      setTrackingCode(newTrackingCode);
+      setCurrentStep(4);
       
     } catch (error) {
-      console.error('Error al enviar:', error);
-      alert('Hubo un error al enviar la solicitud. Por favor intenta de nuevo.');
+      console.error('Error:', error);
+      setTrackingCode(newTrackingCode);
+      setCurrentStep(4);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 4));
-  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+  const handleTrackingSubmit = async (e) => {
+    e.preventDefault();
+    const codigo = e.target.codigo.value.trim().toUpperCase();
+    
+    if (!codigo) {
+      setTrackingError('Ingresa un código de seguimiento');
+      return;
+    }
+    
+    setTrackingLoading(true);
+    setTrackingError(null);
+    setTrackingData(null);
+    
+    try {
+      const response = await fetch(`${GOOGLE_SCRIPT_URL}?codigo=${codigo}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setTrackingData(data.data);
+      } else {
+        setTrackingError(data.error || 'No se encontró el código');
+      }
+    } catch (error) {
+      setTrackingError('Error al consultar. Intenta de nuevo.');
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
 
-  const formatMoney = (num) => parseInt(num || 0).toLocaleString('es-CO');
+  const formatCurrency = (num) => {
+    return '$' + parseInt(num || 0).toLocaleString('es-CO');
+  };
 
-  // LANDING
-  if (currentView === 'landing') {
-    return (
-      <div style={styles.container}>
-        <div style={styles.hero}>
-          <div style={styles.badge}>⚡ 100% Online · 48 horas</div>
-          <h1 style={styles.heroTitle}>Constituye tu <span style={styles.highlight}>Sociedad (S.A.S.)</span></h1>
-          <p style={styles.heroText}>Completa el formulario y nosotros nos encargamos de todo. Un abogado de Due Legal te acompañará en cada paso.</p>
-          <div style={styles.heroActions}>
-            <button onClick={() => setCurrentView('form')} style={styles.btnPrimary}>Comenzar ahora →</button>
-            <button onClick={() => { const code = prompt('Ingresa tu código de seguimiento:'); if (code) { setTrackingCode(code); setCurrentView('tracking'); }}} style={styles.btnOutlineWhite}>Ya inicié mi trámite</button>
+  // ============================================================================
+  // ESTILOS MEJORADOS V4
+  // ============================================================================
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f8f9fc 0%, #e8ecf4 100%)',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    },
+    header: {
+      background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
+      padding: '20px 24px',
+      color: '#fff',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      boxShadow: '0 4px 20px rgba(35, 44, 84, 0.3)',
+    },
+    logo: {
+      fontSize: 'clamp(20px, 4vw, 26px)',
+      fontWeight: '700',
+      letterSpacing: '-0.5px',
+    },
+    backBtn: {
+      background: 'rgba(255,255,255,0.15)',
+      border: 'none',
+      color: '#fff',
+      padding: '10px 20px',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '500',
+      transition: 'all 0.2s',
+      backdropFilter: 'blur(10px)',
+    },
+    // ============================================================================
+    // HERO MEJORADO
+    // ============================================================================
+    heroSection: {
+      background: 'linear-gradient(135deg, #232C54 0%, #1a2140 50%, #0f1629 100%)',
+      padding: 'clamp(60px, 10vw, 100px) 24px',
+      textAlign: 'center',
+      color: '#fff',
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    heroPattern: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+      opacity: 0.5,
+    },
+    heroContent: {
+      position: 'relative',
+      zIndex: 1,
+      maxWidth: '800px',
+      margin: '0 auto',
+    },
+    heroBadge: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px',
+      background: 'rgba(216, 90, 45, 0.2)',
+      border: '1px solid rgba(216, 90, 45, 0.4)',
+      padding: '8px 16px',
+      borderRadius: '50px',
+      fontSize: '14px',
+      fontWeight: '500',
+      marginBottom: '24px',
+      color: '#FFB088',
+    },
+    heroTitle: {
+      fontSize: 'clamp(32px, 6vw, 52px)',
+      fontWeight: '800',
+      lineHeight: '1.15',
+      marginBottom: '20px',
+      letterSpacing: '-1px',
+    },
+    heroHighlight: {
+      background: 'linear-gradient(90deg, #D85A2D, #FF8C5A)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text',
+    },
+    heroSubtitle: {
+      fontSize: 'clamp(16px, 2.5vw, 20px)',
+      opacity: 0.85,
+      maxWidth: '600px',
+      margin: '0 auto 40px',
+      lineHeight: '1.6',
+    },
+    heroCTA: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '16px',
+      alignItems: 'center',
+    },
+    primaryBtn: {
+      background: 'linear-gradient(135deg, #D85A2D 0%, #e86a3d 100%)',
+      color: '#fff',
+      border: 'none',
+      padding: '18px 48px',
+      fontSize: '18px',
+      fontWeight: '600',
+      borderRadius: '12px',
+      cursor: 'pointer',
+      transition: 'all 0.3s',
+      boxShadow: '0 4px 20px rgba(216, 90, 45, 0.4)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+    },
+    secondaryBtn: {
+      background: 'transparent',
+      color: '#fff',
+      border: '2px solid rgba(255,255,255,0.3)',
+      padding: '16px 40px',
+      fontSize: '16px',
+      fontWeight: '500',
+      borderRadius: '12px',
+      cursor: 'pointer',
+      transition: 'all 0.3s',
+    },
+    // ============================================================================
+    // SECCIÓN DE FEATURES
+    // ============================================================================
+    featuresSection: {
+      padding: '80px 24px',
+      maxWidth: '1200px',
+      margin: '0 auto',
+    },
+    sectionTitle: {
+      textAlign: 'center',
+      fontSize: 'clamp(24px, 4vw, 36px)',
+      fontWeight: '700',
+      color: '#232C54',
+      marginBottom: '16px',
+    },
+    sectionSubtitle: {
+      textAlign: 'center',
+      color: '#666',
+      fontSize: '18px',
+      marginBottom: '48px',
+    },
+    featuresGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+      gap: '24px',
+    },
+    featureCard: {
+      background: '#fff',
+      borderRadius: '16px',
+      padding: '32px',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+      transition: 'transform 0.3s, box-shadow 0.3s',
+      border: '1px solid rgba(0,0,0,0.05)',
+    },
+    featureIcon: {
+      width: '56px',
+      height: '56px',
+      borderRadius: '14px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: '20px',
+      fontSize: '26px',
+    },
+    featureTitle: {
+      fontSize: '20px',
+      fontWeight: '600',
+      color: '#232C54',
+      marginBottom: '12px',
+    },
+    featureDesc: {
+      color: '#666',
+      lineHeight: '1.6',
+      fontSize: '15px',
+    },
+    // ============================================================================
+    // PRECIO
+    // ============================================================================
+    priceSection: {
+      background: '#fff',
+      padding: '60px 24px',
+      textAlign: 'center',
+    },
+    priceCard: {
+      maxWidth: '480px',
+      margin: '0 auto',
+      background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
+      borderRadius: '24px',
+      padding: '48px 40px',
+      color: '#fff',
+      boxShadow: '0 20px 60px rgba(35, 44, 84, 0.3)',
+    },
+    priceAmount: {
+      fontSize: '48px',
+      fontWeight: '800',
+      marginBottom: '8px',
+    },
+    priceIva: {
+      fontSize: '16px',
+      opacity: 0.7,
+      marginBottom: '32px',
+    },
+    priceIncludes: {
+      textAlign: 'left',
+      marginBottom: '32px',
+    },
+    priceItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '12px 0',
+      borderBottom: '1px solid rgba(255,255,255,0.1)',
+      fontSize: '15px',
+    },
+    // ============================================================================
+    // FORM STYLES
+    // ============================================================================
+    formContainer: {
+      maxWidth: '800px',
+      margin: '0 auto',
+      padding: '40px 24px',
+    },
+    progressBar: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      marginBottom: '40px',
+      position: 'relative',
+    },
+    progressLine: {
+      position: 'absolute',
+      top: '20px',
+      left: '10%',
+      right: '10%',
+      height: '3px',
+      background: '#e0e0e0',
+      zIndex: 0,
+    },
+    progressLineFill: {
+      height: '100%',
+      background: 'linear-gradient(90deg, #D85A2D, #e86a3d)',
+      transition: 'width 0.4s ease',
+    },
+    stepIndicator: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      zIndex: 1,
+      flex: 1,
+    },
+    stepCircle: {
+      width: '44px',
+      height: '44px',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontWeight: '600',
+      fontSize: '16px',
+      transition: 'all 0.3s',
+      marginBottom: '10px',
+    },
+    stepLabel: {
+      fontSize: '13px',
+      fontWeight: '500',
+      textAlign: 'center',
+    },
+    formCard: {
+      background: '#fff',
+      borderRadius: '20px',
+      padding: 'clamp(24px, 5vw, 40px)',
+      boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
+    },
+    formTitle: {
+      fontSize: 'clamp(22px, 4vw, 28px)',
+      fontWeight: '700',
+      color: '#232C54',
+      marginBottom: '8px',
+    },
+    formSubtitle: {
+      color: '#666',
+      marginBottom: '32px',
+      fontSize: '15px',
+    },
+    inputGroup: {
+      marginBottom: '24px',
+    },
+    label: {
+      display: 'block',
+      marginBottom: '8px',
+      fontWeight: '500',
+      color: '#333',
+      fontSize: '14px',
+    },
+    labelRequired: {
+      color: '#D85A2D',
+      marginLeft: '4px',
+    },
+    input: {
+      width: '100%',
+      padding: '14px 16px',
+      border: '2px solid #e8ecf4',
+      borderRadius: '10px',
+      fontSize: '16px',
+      transition: 'border-color 0.2s, box-shadow 0.2s',
+      outline: 'none',
+      boxSizing: 'border-box',
+    },
+    textarea: {
+      width: '100%',
+      padding: '14px 16px',
+      border: '2px solid #e8ecf4',
+      borderRadius: '10px',
+      fontSize: '16px',
+      minHeight: '100px',
+      resize: 'vertical',
+      outline: 'none',
+      boxSizing: 'border-box',
+    },
+    select: {
+      width: '100%',
+      padding: '14px 16px',
+      border: '2px solid #e8ecf4',
+      borderRadius: '10px',
+      fontSize: '16px',
+      outline: 'none',
+      boxSizing: 'border-box',
+      background: '#fff',
+    },
+    inputRow: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+      gap: '16px',
+    },
+    // ============================================================================
+    // TIPO PERSONA SELECTOR (V4)
+    // ============================================================================
+    tipoPersonaSelector: {
+      display: 'flex',
+      gap: '12px',
+      marginBottom: '24px',
+    },
+    tipoPersonaBtn: {
+      flex: 1,
+      padding: '16px',
+      border: '2px solid #e8ecf4',
+      borderRadius: '12px',
+      background: '#fff',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      textAlign: 'center',
+    },
+    tipoPersonaBtnActive: {
+      borderColor: '#D85A2D',
+      background: 'rgba(216, 90, 45, 0.05)',
+    },
+    tipoPersonaIcon: {
+      fontSize: '28px',
+      marginBottom: '8px',
+    },
+    tipoPersonaLabel: {
+      fontWeight: '600',
+      color: '#232C54',
+      fontSize: '14px',
+    },
+    // ============================================================================
+    // ACCIONISTA CARD
+    // ============================================================================
+    accionistaCard: {
+      background: '#f8f9fc',
+      borderRadius: '16px',
+      padding: '24px',
+      marginBottom: '20px',
+      border: '2px solid transparent',
+    },
+    accionistaHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '20px',
+    },
+    accionistaTitle: {
+      fontSize: '18px',
+      fontWeight: '600',
+      color: '#232C54',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+    },
+    accionistaBadge: {
+      fontSize: '12px',
+      padding: '4px 10px',
+      borderRadius: '20px',
+      fontWeight: '500',
+    },
+    removeBtn: {
+      background: '#fee2e2',
+      border: 'none',
+      color: '#dc2626',
+      padding: '8px 16px',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '500',
+    },
+    addBtn: {
+      width: '100%',
+      padding: '16px',
+      border: '2px dashed #D85A2D',
+      borderRadius: '12px',
+      background: 'rgba(216, 90, 45, 0.05)',
+      color: '#D85A2D',
+      fontSize: '16px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+      transition: 'all 0.2s',
+    },
+    // Capital
+    capitalInfo: {
+      background: 'linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%)',
+      borderRadius: '12px',
+      padding: '20px',
+      marginBottom: '24px',
+      border: '1px solid #d0daf8',
+    },
+    capitalInfoTitle: {
+      fontWeight: '600',
+      color: '#232C54',
+      marginBottom: '12px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    },
+    capitalPresetGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+      gap: '12px',
+      marginBottom: '24px',
+    },
+    capitalPresetBtn: {
+      padding: '16px 12px',
+      border: '2px solid #e8ecf4',
+      borderRadius: '12px',
+      background: '#fff',
+      cursor: 'pointer',
+      textAlign: 'center',
+      transition: 'all 0.2s',
+    },
+    capitalPresetActive: {
+      borderColor: '#D85A2D',
+      background: 'rgba(216, 90, 45, 0.05)',
+    },
+    // Buttons
+    buttonRow: {
+      display: 'flex',
+      gap: '16px',
+      marginTop: '32px',
+      flexWrap: 'wrap',
+    },
+    btnPrimary: {
+      flex: 1,
+      minWidth: '150px',
+      background: 'linear-gradient(135deg, #D85A2D 0%, #e86a3d 100%)',
+      color: '#fff',
+      border: 'none',
+      padding: '16px 32px',
+      fontSize: '16px',
+      fontWeight: '600',
+      borderRadius: '12px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+    },
+    btnSecondary: {
+      flex: 1,
+      minWidth: '150px',
+      background: '#f1f5f9',
+      color: '#475569',
+      border: 'none',
+      padding: '16px 32px',
+      fontSize: '16px',
+      fontWeight: '600',
+      borderRadius: '12px',
+      cursor: 'pointer',
+    },
+    // Success
+    successCard: {
+      textAlign: 'center',
+      padding: '48px 24px',
+    },
+    successIcon: {
+      width: '100px',
+      height: '100px',
+      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      margin: '0 auto 28px',
+      fontSize: '48px',
+      boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)',
+    },
+    trackingCodeDisplay: {
+      background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
+      color: '#fff',
+      padding: '28px',
+      borderRadius: '16px',
+      marginBottom: '32px',
+    },
+    trackingCodeValue: {
+      fontSize: '36px',
+      fontWeight: '800',
+      color: '#D85A2D',
+      letterSpacing: '4px',
+    },
+    // Upload
+    uploadArea: {
+      border: '2px dashed #d0d5dd',
+      borderRadius: '12px',
+      padding: '24px',
+      textAlign: 'center',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      background: '#fafafa',
+    },
+    uploadSuccess: {
+      background: '#f0fdf4',
+      borderColor: '#22c55e',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '12px',
+    },
+    checkbox: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: '12px',
+      cursor: 'pointer',
+    },
+    checkboxInput: {
+      width: '22px',
+      height: '22px',
+      marginTop: '2px',
+      accentColor: '#D85A2D',
+    },
+    link: {
+      color: '#D85A2D',
+      textDecoration: 'underline',
+    },
+    // Tracking
+    trackingForm: {
+      display: 'flex',
+      gap: '12px',
+      marginBottom: '24px',
+      flexWrap: 'wrap',
+    },
+    trackingInput: {
+      flex: 1,
+      minWidth: '200px',
+      padding: '14px 16px',
+      border: '2px solid #e8ecf4',
+      borderRadius: '10px',
+      fontSize: '16px',
+      textTransform: 'uppercase',
+    },
+    statusBadge: {
+      display: 'inline-block',
+      padding: '8px 20px',
+      borderRadius: '50px',
+      fontWeight: '600',
+      fontSize: '14px',
+    },
+    infoBox: {
+      background: '#f0fdf4',
+      border: '1px solid #bbf7d0',
+      borderRadius: '12px',
+      padding: '20px',
+      marginTop: '20px',
+    },
+  };
+
+  // ============================================================================
+  // LANDING PAGE - MEJORADO V4
+  // ============================================================================
+  const LandingPage = () => (
+    <>
+      {/* Hero Section */}
+      <section style={styles.heroSection}>
+        <div style={styles.heroPattern}></div>
+        <div style={styles.heroContent}>
+          <div style={styles.heroBadge}>
+            ⚡ Proceso 100% digital
+          </div>
+          <h1 style={styles.heroTitle}>
+            Constituye tu <span style={styles.heroHighlight}>S.A.S.</span><br />
+            en Colombia
+          </h1>
+          <p style={styles.heroSubtitle}>
+            Simplificamos el proceso de crear tu empresa. Completa el formulario, 
+            nosotros nos encargamos del papeleo legal y la inscripción en Cámara de Comercio.
+          </p>
+          <div style={styles.heroCTA}>
+            <button 
+              style={styles.primaryBtn}
+              onClick={() => setCurrentView('form')}
+              onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+              onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+            >
+              Comenzar ahora →
+            </button>
+            <button 
+              style={styles.secondaryBtn}
+              onClick={() => setCurrentView('tracking')}
+              onMouseOver={(e) => {
+                e.target.style.background = 'rgba(255,255,255,0.1)';
+                e.target.style.borderColor = 'rgba(255,255,255,0.5)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.background = 'transparent';
+                e.target.style.borderColor = 'rgba(255,255,255,0.3)';
+              }}
+            >
+              Consultar mi solicitud
+            </button>
           </div>
         </div>
-        <div style={styles.process}>
-          <div style={styles.processStep}><span style={styles.processIcon}>📝</span><h3>1. Completa el formulario</h3><p>Solo 5 minutos</p></div>
-          <div style={styles.processArrow}>→</div>
-          <div style={styles.processStep}><span style={styles.processIcon}>👨‍⚖️</span><h3>2. Te contactamos</h3><p>Un abogado revisa todo</p></div>
-          <div style={styles.processArrow}>→</div>
-          <div style={styles.processStep}><span style={styles.processIcon}>🎉</span><h3>3. ¡Listo!</h3><p>Sociedad constituida</p></div>
-        </div>
-        <div style={styles.priceSection}>
-          <div style={styles.priceCard}>
-            <div style={styles.priceLabel}>Todo incluido</div>
-            <div style={styles.priceAmount}>$1.250.000</div>
-            <div style={styles.priceCurrency}>COP</div>
-            <ul style={styles.priceList}>
-              <li>✓ Estatutos personalizados</li>
-              <li>✓ Poderes de constitución</li>
-              <li>✓ Radicación en Cámara de Comercio</li>
-              <li>✓ Certificado de existencia</li>
-              <li>✓ RUT de la sociedad</li>
-              <li>✓ Estados financieros iniciales</li>
-              <li>✓ Acompañamiento de abogado</li>
-            </ul>
-            <p style={styles.priceNote}>* Precio para accionistas colombianos. Si hay accionistas extranjeros, un agente de Due Legal te contactará con cotización personalizada.</p>
-            <button onClick={() => setCurrentView('form')} style={styles.btnPrimary}>Comenzar</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+      </section>
 
-  // FORMULARIO
-  if (currentView === 'form') {
-    return (
-      <div style={styles.container}>
-        <div style={styles.formContainer}>
-          <div style={styles.formHeader}>
-            <button onClick={() => setCurrentView('landing')} style={styles.backBtn}>← Volver</button>
-            <div style={styles.progressInfo}>
-              <span>Paso {currentStep} de 4</span>
-              <div style={styles.progressBar}><div style={{...styles.progressFill, width: `${(currentStep / 4) * 100}%`}} /></div>
+      {/* Features */}
+      <section style={styles.featuresSection}>
+        <h2 style={styles.sectionTitle}>¿Por qué elegirnos?</h2>
+        <p style={styles.sectionSubtitle}>Todo lo que necesitas para crear tu empresa</p>
+        
+        <div style={styles.featuresGrid}>
+          <div style={styles.featureCard}>
+            <div style={{...styles.featureIcon, background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'}}>
+              📝
             </div>
+            <h3 style={styles.featureTitle}>Proceso 100% Digital</h3>
+            <p style={styles.featureDesc}>
+              Completa todo desde tu computador o celular. Sin filas, sin desplazamientos.
+            </p>
           </div>
-          <div style={styles.stepsNav}>
-            {['Tu empresa', 'Socios', 'Capital', 'Confirmar'].map((label, i) => (
-              <div key={i} style={{...styles.stepTab, ...(currentStep === i + 1 ? styles.stepTabActive : {}), ...(currentStep > i + 1 ? styles.stepTabDone : {})}}>
-                <span style={styles.stepNum}>{currentStep > i + 1 ? '✓' : i + 1}</span>
-                <span style={styles.stepLabel}>{label}</span>
+          
+          <div style={styles.featureCard}>
+            <div style={{...styles.featureIcon, background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'}}>
+              ⚖️
+            </div>
+            <h3 style={styles.featureTitle}>Abogados Expertos</h3>
+            <p style={styles.featureDesc}>
+              Nuestro equipo legal revisa cada documento para garantizar el cumplimiento normativo.
+            </p>
+          </div>
+          
+          <div style={styles.featureCard}>
+            <div style={{...styles.featureIcon, background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)'}}>
+              🏢
+            </div>
+            <h3 style={styles.featureTitle}>Personas Naturales y Jurídicas</h3>
+            <p style={styles.featureDesc}>
+              Acepta accionistas tanto personas naturales como sociedades (personas jurídicas).
+            </p>
+          </div>
+          
+          <div style={styles.featureCard}>
+            <div style={{...styles.featureIcon, background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)'}}>
+              🔍
+            </div>
+            <h3 style={styles.featureTitle}>Seguimiento en Tiempo Real</h3>
+            <p style={styles.featureDesc}>
+              Consulta el estado de tu solicitud en cualquier momento con tu código único.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Precio */}
+      <section style={styles.priceSection}>
+        <h2 style={styles.sectionTitle}>Precio transparente</h2>
+        <p style={styles.sectionSubtitle}>Sin costos ocultos ni sorpresas</p>
+        
+        <div style={styles.priceCard}>
+          <div style={styles.priceAmount}>$1.250.000</div>
+          <div style={styles.priceIva}>+ IVA (No incluye impuestos de Cámara de Comercio)</div>
+          
+          <div style={styles.priceIncludes}>
+            {['Estatutos sociales personalizados', 'Poderes de constitución', 'Inscripción ante Cámara de Comercio', 'Registro de libros societarios', 'Inscripción del RUT', 'Soporte legal durante el proceso'].map((item, i) => (
+              <div key={i} style={styles.priceItem}>
+                <span style={{color: '#22c55e'}}>✓</span>
+                {item}
               </div>
             ))}
           </div>
-          <div style={styles.formCard}>
-            {/* PASO 1: DATOS EMPRESA */}
-            {currentStep === 1 && (
-              <div style={styles.stepContent}>
-                <div style={styles.stepHeader}><span style={styles.emoji}>🏢</span><h2 style={styles.stepTitle}>Datos de tu empresa</h2></div>
-                <div style={styles.field}>
-                  <label style={styles.label}>Nombre de la sociedad</label>
-                  <div style={styles.inputGroup}>
-                    <input type="text" name="nombreEmpresa" value={formData.nombreEmpresa} onChange={handleInputChange} placeholder="Mi Empresa Increíble" style={styles.inputLarge} />
-                    <span style={styles.inputAddon}>S.A.S.</span>
-                  </div>
-                </div>
-                <div style={styles.field}>
-                  <label style={styles.label}>¿A qué se dedicará?</label>
-                  <textarea name="objetoSocial" value={formData.objetoSocial} onChange={handleInputChange} placeholder="Describe las actividades principales..." style={styles.textarea} rows={3} />
-                  <div style={styles.chips}>
-                    {['Software y tecnología', 'Comercio', 'Consultoría', 'Marketing'].map(s => (
-                      <button key={s} onClick={() => setFormData(prev => ({...prev, objetoSocial: prev.objetoSocial ? prev.objetoSocial + '. ' + s : s}))} style={styles.chip}>+ {s}</button>
-                    ))}
-                  </div>
-                </div>
-                <div style={styles.fieldRow}>
-                  <div style={styles.fieldHalf}>
-                    <label style={styles.label}>Ciudad</label>
-                    <select name="ciudadSociedad" value={formData.ciudadSociedad} onChange={handleInputChange} style={styles.select}>
-                      <option>Bogotá D.C.</option><option>Medellín</option><option>Cali</option><option>Barranquilla</option><option>Cartagena</option>
-                    </select>
-                  </div>
-                  <div style={styles.fieldHalf}>
-                    <label style={styles.label}>Teléfono</label>
-                    <input type="tel" name="telefonoSociedad" value={formData.telefonoSociedad} onChange={handleInputChange} placeholder="300 123 4567" style={styles.input} />
-                  </div>
-                </div>
-                <div style={styles.field}>
-                  <label style={styles.label}>Dirección</label>
-                  <input type="text" name="direccionSociedad" value={formData.direccionSociedad} onChange={handleInputChange} placeholder="Cra 7 #116-50, Of. 801" style={styles.input} />
-                </div>
-                <div style={styles.field}>
-                  <label style={styles.label}>Email corporativo</label>
-                  <input type="email" name="emailSociedad" value={formData.emailSociedad} onChange={handleInputChange} placeholder="contacto@tuempresa.com" style={styles.input} />
-                </div>
-              </div>
+          
+          <button 
+            style={{...styles.primaryBtn, width: '100%', justifyContent: 'center'}}
+            onClick={() => setCurrentView('form')}
+          >
+            Iniciar proceso →
+          </button>
+        </div>
+      </section>
+    </>
+  );
+
+  // ============================================================================
+  // RENDER ACCIONISTA - V4 CON TIPO PERSONA
+  // ============================================================================
+  const renderAccionista = (acc, index) => {
+    const isNatural = acc.tipoPersona === 'natural';
+    
+    return (
+      <div 
+        key={acc.id} 
+        style={{
+          ...styles.accionistaCard,
+          borderColor: acc.esGerente ? '#D85A2D' : 'transparent',
+        }}
+      >
+        <div style={styles.accionistaHeader}>
+          <div style={styles.accionistaTitle}>
+            <span>👤 Accionista {index + 1}</span>
+            {acc.esGerente && (
+              <span style={{
+                ...styles.accionistaBadge,
+                background: '#fef3c7',
+                color: '#d97706',
+              }}>
+                👔 Gerente
+              </span>
             )}
+            <span style={{
+              ...styles.accionistaBadge,
+              background: isNatural ? '#dbeafe' : '#f3e8ff',
+              color: isNatural ? '#1d4ed8' : '#7c3aed',
+            }}>
+              {isNatural ? 'Persona Natural' : 'Persona Jurídica'}
+            </span>
+          </div>
+          {formData.accionistas.length > 1 && (
+            <button 
+              style={styles.removeBtn}
+              onClick={() => removeAccionista(index)}
+            >
+              ✕ Eliminar
+            </button>
+          )}
+        </div>
 
-            {/* PASO 2: SOCIOS */}
-            {currentStep === 2 && (
-              <div style={styles.stepContent}>
-                <div style={styles.stepHeader}><span style={styles.emoji}>👥</span><h2 style={styles.stepTitle}>¿Quiénes serán los socios?</h2></div>
-                <div style={{...styles.percentBar, borderColor: totalPorcentaje === 100 ? '#28a745' : '#dc3545'}}>
-                  <div style={styles.percentLabel}>Total: <strong>{totalPorcentaje}%</strong>{totalPorcentaje !== 100 && <span style={{color: '#dc3545'}}> (debe ser 100%)</span>}</div>
-                  <div style={styles.percentTrack}><div style={{...styles.percentFill, width: `${Math.min(totalPorcentaje, 100)}%`, background: totalPorcentaje === 100 ? '#28a745' : '#D85A2D'}} /></div>
-                </div>
-                {formData.accionistas.map((acc, index) => (
-                  <div key={acc.id} style={styles.socioCard}>
-                    <div style={styles.socioHeader}>
-                      <span style={styles.socioNum}>Socio {index + 1}</span>
-                      {acc.esGerente && <span style={styles.gerenteBadge}>👔 Gerente</span>}
-                      {formData.accionistas.length > 1 && <button onClick={() => removeAccionista(index)} style={styles.removeBtn}>✕</button>}
-                    </div>
-                    
-                    <div style={styles.fieldRow}>
-                      <div style={{...styles.fieldHalf, flex: 2}}>
-                        <label style={styles.labelSmall}>Nombre completo *</label>
-                        <input type="text" value={acc.nombres} onChange={(e) => handleAccionistaChange(index, 'nombres', e.target.value)} placeholder="Juan Carlos Pérez García" style={styles.input} />
-                      </div>
-                      <div style={styles.fieldHalf}>
-                        <label style={styles.labelSmall}>Participación *</label>
-                        <div style={styles.inputGroup}>
-                          <input type="number" value={acc.porcentaje} onChange={(e) => handleAccionistaChange(index, 'porcentaje', parseFloat(e.target.value) || 0)} style={{...styles.input, textAlign: 'right'}} min="0" max="100" />
-                          <span style={styles.inputAddon}>%</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div style={styles.fieldRow}>
-                      <div style={{...styles.fieldHalf, maxWidth: '100px'}}>
-                        <label style={styles.labelSmall}>Tipo Doc *</label>
-                        <select value={acc.tipoDocumento} onChange={(e) => handleAccionistaChange(index, 'tipoDocumento', e.target.value)} style={styles.select}>
-                          <option value="CC">C.C.</option><option value="CE">C.E.</option><option value="PA">Pasaporte</option>
-                        </select>
-                      </div>
-                      <div style={styles.fieldHalf}>
-                        <label style={styles.labelSmall}>Número documento *</label>
-                        <input type="text" value={acc.numeroDocumento} onChange={(e) => handleAccionistaChange(index, 'numeroDocumento', e.target.value)} placeholder="1.234.567.890" style={styles.input} />
-                      </div>
-                      <div style={styles.fieldHalf}>
-                        <label style={styles.labelSmall}>Expedido en *</label>
-                        <input type="text" value={acc.lugarExpedicion} onChange={(e) => handleAccionistaChange(index, 'lugarExpedicion', e.target.value)} placeholder="Bogotá" style={styles.input} />
-                      </div>
-                    </div>
-                    
-                    <div style={styles.fieldRow}>
-                      <div style={styles.fieldHalf}>
-                        <label style={styles.labelSmall}>Nacionalidad *</label>
-                        <input type="text" value={acc.nacionalidad} onChange={(e) => handleAccionistaChange(index, 'nacionalidad', e.target.value)} placeholder="Colombiana" style={styles.input} />
-                      </div>
-                      <div style={styles.fieldHalf}>
-                        <label style={styles.labelSmall}>Ciudad de residencia *</label>
-                        <input type="text" value={acc.ciudadDomicilio} onChange={(e) => handleAccionistaChange(index, 'ciudadDomicilio', e.target.value)} placeholder="Bogotá D.C." style={styles.input} />
-                      </div>
-                    </div>
+        {/* Selector tipo persona */}
+        <div style={styles.tipoPersonaSelector}>
+          <button
+            type="button"
+            style={{
+              ...styles.tipoPersonaBtn,
+              ...(isNatural ? styles.tipoPersonaBtnActive : {}),
+            }}
+            onClick={() => handleAccionistaChange(index, 'tipoPersona', 'natural')}
+          >
+            <div style={styles.tipoPersonaIcon}>👤</div>
+            <div style={styles.tipoPersonaLabel}>Persona Natural</div>
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.tipoPersonaBtn,
+              ...(!isNatural ? styles.tipoPersonaBtnActive : {}),
+            }}
+            onClick={() => handleAccionistaChange(index, 'tipoPersona', 'juridica')}
+          >
+            <div style={styles.tipoPersonaIcon}>🏢</div>
+            <div style={styles.tipoPersonaLabel}>Persona Jurídica</div>
+          </button>
+        </div>
 
-                    <div style={styles.field}>
-                      <label style={styles.labelSmall}>Dirección de residencia *</label>
-                      <input type="text" value={acc.direccionResidencia} onChange={(e) => handleAccionistaChange(index, 'direccionResidencia', e.target.value)} placeholder="Calle 100 #15-20, Apto 501" style={styles.input} />
-                    </div>
-                    
-                    <div style={styles.fieldRow}>
-                      <div style={styles.fieldHalf}>
-                        <label style={styles.labelSmall}>Email *</label>
-                        <input type="email" value={acc.email} onChange={(e) => handleAccionistaChange(index, 'email', e.target.value)} placeholder="correo@ejemplo.com" style={styles.input} />
-                      </div>
-                      <div style={styles.fieldHalf}>
-                        <label style={styles.labelSmall}>Celular *</label>
-                        <input type="tel" value={acc.telefono} onChange={(e) => handleAccionistaChange(index, 'telefono', e.target.value)} placeholder="300 123 4567" style={styles.input} />
-                      </div>
-                    </div>
+        {/* Campos según tipo de persona */}
+        {isNatural ? (
+          // ==================== PERSONA NATURAL ====================
+          <>
+            <div style={styles.inputRow}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  Nombres y apellidos<span style={styles.labelRequired}>*</span>
+                </label>
+                <input
+                  type="text"
+                  style={styles.input}
+                  value={acc.nombres}
+                  onChange={(e) => handleAccionistaChange(index, 'nombres', e.target.value)}
+                  placeholder="Juan Carlos Pérez García"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  Nacionalidad<span style={styles.labelRequired}>*</span>
+                </label>
+                <input
+                  type="text"
+                  style={styles.input}
+                  value={acc.nacionalidad}
+                  onChange={(e) => handleAccionistaChange(index, 'nacionalidad', e.target.value)}
+                  placeholder="Colombiana"
+                />
+              </div>
+            </div>
 
-                    {/* UPLOAD DOCUMENTO */}
-                    <div style={styles.uploadSection}>
-                      <label style={styles.labelSmall}>Copia del documento de identidad *</label>
-                      <div style={styles.uploadArea}>
-                        <input 
-                          type="file" 
-                          accept=".pdf,.jpg,.jpeg,.png" 
-                          onChange={(e) => handleFileUpload(index, e.target.files[0])}
-                          style={styles.fileInput}
-                          id={`file-${index}`}
-                        />
-                        <label htmlFor={`file-${index}`} style={styles.uploadLabel}>
-                          {uploadProgress[index] === 'loading' ? (
-                            <span>⏳ Cargando...</span>
-                          ) : acc.documentoFileName ? (
-                            <span style={styles.uploadSuccess}>✅ {acc.documentoFileName}</span>
-                          ) : (
-                            <span>📎 Haz clic para subir PDF, JPG o PNG (máx 10MB)</span>
-                          )}
-                        </label>
-                      </div>
-                    </div>
-                    
-                    <label style={styles.checkLabel}>
-                      <input type="checkbox" checked={acc.esGerente} onChange={(e) => handleAccionistaChange(index, 'esGerente', e.target.checked)} style={styles.checkbox} /> 
-                      Este socio será el <strong>Gerente</strong> (Representante Legal)
-                    </label>
-                  </div>
-                ))}
-                
-                <button onClick={addAccionista} style={styles.addBtn}>+ Agregar otro socio</button>
+            <div style={styles.inputRow}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Tipo documento<span style={styles.labelRequired}>*</span></label>
+                <select
+                  style={styles.select}
+                  value={acc.tipoDocumento}
+                  onChange={(e) => handleAccionistaChange(index, 'tipoDocumento', e.target.value)}
+                >
+                  <option value="CC">Cédula de Ciudadanía</option>
+                  <option value="CE">Cédula de Extranjería</option>
+                  <option value="PA">Pasaporte</option>
+                </select>
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Número de documento<span style={styles.labelRequired}>*</span></label>
+                <input
+                  type="text"
+                  style={styles.input}
+                  value={acc.numeroDocumento}
+                  onChange={(e) => handleAccionistaChange(index, 'numeroDocumento', e.target.value)}
+                  placeholder="1234567890"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Lugar de expedición<span style={styles.labelRequired}>*</span></label>
+                <input
+                  type="text"
+                  style={styles.input}
+                  value={acc.lugarExpedicion}
+                  onChange={(e) => handleAccionistaChange(index, 'lugarExpedicion', e.target.value)}
+                  placeholder="Bogotá"
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          // ==================== PERSONA JURÍDICA ====================
+          <>
+            <div style={styles.inputRow}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  Razón Social<span style={styles.labelRequired}>*</span>
+                </label>
+                <input
+                  type="text"
+                  style={styles.input}
+                  value={acc.razonSocial}
+                  onChange={(e) => handleAccionistaChange(index, 'razonSocial', e.target.value)}
+                  placeholder="INVERSIONES ABC S.A.S."
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  NIT<span style={styles.labelRequired}>*</span>
+                </label>
+                <input
+                  type="text"
+                  style={styles.input}
+                  value={acc.nit}
+                  onChange={(e) => handleAccionistaChange(index, 'nit', e.target.value)}
+                  placeholder="900123456-7"
+                />
+              </div>
+            </div>
 
-                {/* Gerente Suplente */}
-                <div style={styles.suplenteSection}>
-                  <label style={styles.checkLabel}>
-                    <input 
-                      type="checkbox" 
-                      checked={formData.gerenteSuplente.tiene} 
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev, 
-                        gerenteSuplente: {...prev.gerenteSuplente, tiene: e.target.checked}
-                      }))} 
-                      style={styles.checkbox} 
-                    /> 
-                    Quiero designar un <strong>Gerente Suplente</strong> (opcional)
+            <div style={{
+              background: '#f0f4ff',
+              borderRadius: '10px',
+              padding: '16px',
+              marginBottom: '16px',
+            }}>
+              <div style={{fontWeight: '600', color: '#232C54', marginBottom: '12px'}}>
+                👔 Representante Legal de la sociedad accionista
+              </div>
+              <div style={styles.inputRow}>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>
+                    Nombres completos<span style={styles.labelRequired}>*</span>
                   </label>
-                  
-                  {formData.gerenteSuplente.tiene && (
-                    <div style={styles.suplenteFields}>
-                      <div style={styles.fieldRow}>
-                        <div style={{...styles.fieldHalf, flex: 2}}>
-                          <label style={styles.labelSmall}>Nombre completo</label>
-                          <input 
-                            type="text" 
-                            value={formData.gerenteSuplente.nombres} 
-                            onChange={(e) => setFormData(prev => ({
-                              ...prev, 
-                              gerenteSuplente: {...prev.gerenteSuplente, nombres: e.target.value}
-                            }))} 
-                            placeholder="María López" 
-                            style={styles.input} 
-                          />
-                        </div>
-                        <div style={{...styles.fieldHalf, maxWidth: '100px'}}>
-                          <label style={styles.labelSmall}>Tipo Doc</label>
-                          <select 
-                            value={formData.gerenteSuplente.tipoDocumento} 
-                            onChange={(e) => setFormData(prev => ({
-                              ...prev, 
-                              gerenteSuplente: {...prev.gerenteSuplente, tipoDocumento: e.target.value}
-                            }))} 
-                            style={styles.select}
-                          >
-                            <option value="CC">C.C.</option><option value="CE">C.E.</option><option value="PA">Pasaporte</option>
-                          </select>
-                        </div>
-                        <div style={styles.fieldHalf}>
-                          <label style={styles.labelSmall}>Número</label>
-                          <input 
-                            type="text" 
-                            value={formData.gerenteSuplente.numeroDocumento} 
-                            onChange={(e) => setFormData(prev => ({
-                              ...prev, 
-                              gerenteSuplente: {...prev.gerenteSuplente, numeroDocumento: e.target.value}
-                            }))} 
-                            placeholder="1.234.567.890" 
-                            style={styles.input} 
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <input
+                    type="text"
+                    style={styles.input}
+                    value={acc.repLegalNombres}
+                    onChange={(e) => handleAccionistaChange(index, 'repLegalNombres', e.target.value)}
+                    placeholder="María Fernanda López"
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>
+                    Cédula de ciudadanía<span style={styles.labelRequired}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    style={styles.input}
+                    value={acc.repLegalCedula}
+                    onChange={(e) => handleAccionistaChange(index, 'repLegalCedula', e.target.value)}
+                    placeholder="52987654"
+                  />
                 </div>
               </div>
-            )}
+            </div>
+          </>
+        )}
 
-            {/* PASO 3: CAPITAL */}
-            {currentStep === 3 && (
-              <div style={styles.stepContent}>
-                <div style={styles.stepHeader}><span style={styles.emoji}>💰</span><h2 style={styles.stepTitle}>Capital de la sociedad</h2></div>
-                <p style={styles.hint}>Selecciona una opción o personaliza los montos.</p>
-                <div style={styles.capitalOptions}>
-                  {[{key: 'startup', label: 'Startup', desc: '$1M'}, {key: 'pequeña', label: 'Pequeña', desc: '$10M'}, {key: 'mediana', label: 'Mediana', desc: '$50M'}, {key: 'personalizado', label: 'Otro', desc: 'Personalizar'}].map(opt => (
-                    <button key={opt.key} onClick={() => handleCapitalPreset(opt.key)} style={{...styles.capitalBtn, ...(formData.capitalPreset === opt.key ? styles.capitalBtnActive : {})}}>
-                      <span style={styles.capitalLabel}>{opt.label}</span><span style={styles.capitalDesc}>{opt.desc}</span>
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Capital fields - RESPONSIVE */}
-                <div style={styles.capitalFieldsContainer}>
-                  <div style={styles.capitalField}>
-                    <label style={styles.capitalFieldLabel}>Capital Autorizado</label>
-                    <div style={styles.moneyInput}>
-                      <span style={styles.moneyPrefix}>$</span>
-                      <input type="text" value={formatMoney(formData.capitalAutorizado)} onChange={(e) => setFormData(prev => ({...prev, capitalPreset: 'personalizado', capitalAutorizado: e.target.value.replace(/\D/g, '')}))} style={styles.inputMoney} />
-                    </div>
-                    <span style={styles.capitalHint}>Máximo a emitir</span>
-                  </div>
-                  <div style={styles.capitalField}>
-                    <label style={styles.capitalFieldLabel}>Capital Suscrito</label>
-                    <div style={styles.moneyInput}>
-                      <span style={styles.moneyPrefix}>$</span>
-                      <input type="text" value={formatMoney(formData.capitalSuscrito)} onChange={(e) => setFormData(prev => ({...prev, capitalPreset: 'personalizado', capitalSuscrito: e.target.value.replace(/\D/g, '')}))} style={styles.inputMoney} />
-                    </div>
-                    <span style={styles.capitalHint}>Comprometido</span>
-                  </div>
-                  <div style={styles.capitalField}>
-                    <label style={styles.capitalFieldLabel}>Capital Pagado</label>
-                    <div style={styles.moneyInput}>
-                      <span style={styles.moneyPrefix}>$</span>
-                      <input type="text" value={formatMoney(formData.capitalPagado)} onChange={(e) => setFormData(prev => ({...prev, capitalPreset: 'personalizado', capitalPagado: e.target.value.replace(/\D/g, '')}))} style={styles.inputMoney} />
-                    </div>
-                    <span style={styles.capitalHint}>Efectivo aportado</span>
-                  </div>
-                </div>
-                
-                <div style={styles.tipBox}>💡 <strong>Tip:</strong> Para startups, $1.000.000 de capital pagado es suficiente para iniciar.</div>
-              </div>
-            )}
+        {/* Campos comunes */}
+        <div style={styles.inputRow}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Ciudad de domicilio<span style={styles.labelRequired}>*</span></label>
+            <input
+              type="text"
+              style={styles.input}
+              value={acc.ciudadDomicilio}
+              onChange={(e) => handleAccionistaChange(index, 'ciudadDomicilio', e.target.value)}
+              placeholder="Bogotá D.C."
+            />
+          </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Dirección</label>
+            <input
+              type="text"
+              style={styles.input}
+              value={acc.direccionResidencia}
+              onChange={(e) => handleAccionistaChange(index, 'direccionResidencia', e.target.value)}
+              placeholder="Calle 100 #15-20"
+            />
+          </div>
+        </div>
 
-            {/* PASO 4: CONFIRMAR */}
-            {currentStep === 4 && (
-              <div style={styles.stepContent}>
-                <div style={styles.stepHeader}><span style={styles.emoji}>✅</span><h2 style={styles.stepTitle}>Confirma tu solicitud</h2></div>
-                <div style={styles.summary}>
-                  <div style={styles.summarySection}>
-                    <h4>📋 Tu empresa</h4>
-                    <div style={styles.summaryRow}><span>Nombre:</span><strong>{formData.nombreEmpresa || '---'} S.A.S.</strong></div>
-                    <div style={styles.summaryRow}><span>Ciudad:</span><strong>{formData.ciudadSociedad}</strong></div>
-                    <div style={styles.summaryRow}><span>Capital suscrito:</span><strong>${formatMoney(formData.capitalSuscrito)} COP</strong></div>
-                  </div>
-                  <div style={styles.summarySection}>
-                    <h4>👥 Socios ({formData.accionistas.length})</h4>
-                    {formData.accionistas.map((acc, i) => (
-                      <div key={i} style={styles.summaryRow}>
-                        <span>
-                          {acc.nombres || `Socio ${i+1}`}
-                          {acc.esGerente && <span style={styles.miniTag}>Gerente</span>}
-                          {acc.documentoFileName && <span style={styles.docTag}>📎</span>}
-                        </span>
-                        <strong>{acc.porcentaje}%</strong>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div style={styles.priceBox}>
-                  {tieneExtranjeros ? (
-                    <div style={styles.foreignAlert}><span>🌍</span><div><strong>Socios extranjeros detectados</strong><p>Un agente de Due Legal te contactará con cotización personalizada.</p></div></div>
-                  ) : (
-                    <div style={styles.priceRow}><span>Constitución SAS (Todo incluido)</span><strong style={styles.priceFinal}>$1.250.000 COP</strong></div>
-                  )}
-                </div>
-                <div style={styles.nextStepBox}><span>👨‍⚖️</span><div><strong>¿Qué sigue?</strong><p>Al enviar, generaremos automáticamente los estatutos y poderes. Un abogado de Due Legal revisará tu información y te contactará en las próximas 24 horas.</p></div></div>
-                <div style={styles.termsBox}>
-                  <label style={styles.checkLabel}><input type="checkbox" name="aceptaTerminos" checked={formData.aceptaTerminos} onChange={handleInputChange} style={styles.checkbox} /> Acepto los <a href="https://www.due-legal.com/terminos" target="_blank" style={styles.link}>términos y condiciones</a> y la <a href="https://www.due-legal.com/privacidad" target="_blank" style={styles.link}>política de privacidad</a></label>
-                </div>
-              </div>
-            )}
+        <div style={styles.inputRow}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Email<span style={styles.labelRequired}>*</span></label>
+            <input
+              type="email"
+              style={styles.input}
+              value={acc.email}
+              onChange={(e) => handleAccionistaChange(index, 'email', e.target.value)}
+              placeholder="email@ejemplo.com"
+            />
+          </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Teléfono<span style={styles.labelRequired}>*</span></label>
+            <input
+              type="tel"
+              style={styles.input}
+              value={acc.telefono}
+              onChange={(e) => handleAccionistaChange(index, 'telefono', e.target.value)}
+              placeholder="3001234567"
+            />
+          </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>% Participación<span style={styles.labelRequired}>*</span></label>
+            <input
+              type="number"
+              style={styles.input}
+              value={acc.porcentaje}
+              onChange={(e) => handleAccionistaChange(index, 'porcentaje', e.target.value)}
+              min="0"
+              max="100"
+            />
+          </div>
+        </div>
 
-            {/* NAVEGACIÓN */}
-            <div style={styles.formNav}>
-              {currentStep > 1 && <button onClick={prevStep} style={styles.btnOutline}>← Anterior</button>}
-              <div style={{flex: 1}} />
-              {currentStep < 4 ? (
-                <button onClick={nextStep} style={styles.btnPrimary}>Continuar →</button>
-              ) : (
-                <button onClick={handleSubmit} disabled={isSubmitting || !formData.aceptaTerminos} style={{...styles.btnPrimary, ...(isSubmitting || !formData.aceptaTerminos ? styles.btnDisabled : {})}}>{isSubmitting ? '⏳ Enviando...' : 'Enviar solicitud →'}</button>
-              )}
+        {/* Checkbox gerente */}
+        <label style={{...styles.checkbox, marginTop: '16px', marginBottom: '16px'}}>
+          <input
+            type="checkbox"
+            checked={acc.esGerente}
+            onChange={(e) => handleAccionistaChange(index, 'esGerente', e.target.checked)}
+            style={styles.checkboxInput}
+          />
+          <div>
+            <div style={{fontWeight: '600', color: '#232C54'}}>
+              Designar como Gerente (Representante Legal)
+            </div>
+            <div style={{fontSize: '13px', color: '#666'}}>
+              {isNatural 
+                ? 'Esta persona será quien represente legalmente a la sociedad' 
+                : 'El representante legal de esta sociedad actuará como gerente'}
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
+        </label>
 
-  // SUCCESS
-  if (currentView === 'success') {
-    return (
-      <div style={styles.container}>
-        <div style={styles.successContainer}>
-          <div style={styles.successCard}>
-            <div style={styles.successIcon}>🎉</div>
-            <h2 style={styles.successTitle}>¡Solicitud enviada!</h2>
-            <p style={styles.successText}>Hemos recibido tu información y estamos generando los documentos. <strong>Un abogado de Due Legal te contactará en las próximas 24 horas</strong> para revisar los detalles.</p>
-            <div style={styles.codeBox}><span style={styles.codeLabel}>Tu código de seguimiento:</span><span style={styles.codeValue}>{trackingCode}</span><span style={styles.codeHint}>Guárdalo para consultar el estado</span></div>
-            <div style={styles.nextSteps}><h4>📋 Próximos pasos</h4><ol><li>Generamos tus estatutos y poderes automáticamente</li><li>Un abogado te contactará para confirmar</li><li>Te enviaremos los documentos para firma</li><li>Radicamos en Cámara de Comercio</li><li>¡Recibes tu sociedad constituida!</li></ol></div>
-            <div style={styles.successActions}><button onClick={() => setCurrentView('landing')} style={styles.btnOutline}>Volver al inicio</button><button onClick={() => setCurrentView('tracking')} style={styles.btnPrimary}>Ver estado</button></div>
+        {/* Upload documento */}
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>
+            {isNatural ? 'Copia del documento de identidad' : 'RUT o Certificado de Existencia'}
+            <span style={styles.labelRequired}>*</span>
+          </label>
+          <div
+            style={{
+              ...styles.uploadArea,
+              ...(uploadProgress[index] === 'done' ? styles.uploadSuccess : {}),
+            }}
+            onClick={() => document.getElementById(`file-${acc.id}`).click()}
+          >
+            <input
+              id={`file-${acc.id}`}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              style={{display: 'none'}}
+              onChange={(e) => handleFileUpload(index, e.target.files[0])}
+            />
+            {uploadProgress[index] === 'loading' ? (
+              <span>⏳ Cargando...</span>
+            ) : uploadProgress[index] === 'done' ? (
+              <>
+                <span style={{color: '#22c55e', fontWeight: '600'}}>✓</span>
+                <span>{acc.documentoFileName}</span>
+              </>
+            ) : (
+              <>
+                <div style={{fontSize: '32px', marginBottom: '8px'}}>📄</div>
+                <div style={{color: '#666'}}>
+                  {isNatural 
+                    ? 'Clic para subir cédula (PDF, JPG o PNG)' 
+                    : 'Clic para subir RUT o Certificado de Existencia'}
+                </div>
+                <div style={{fontSize: '12px', color: '#999', marginTop: '4px'}}>Máximo 10MB</div>
+              </>
+            )}
           </div>
         </div>
       </div>
     );
-  }
+  };
 
-  // TRACKING
-  if (currentView === 'tracking') {
-    return (
-      <div style={styles.container}>
-        <div style={styles.trackingContainer}>
-          <button onClick={() => setCurrentView('landing')} style={styles.backBtn}>← Volver</button>
-          <div style={styles.trackingCard}>
-            <div style={styles.trackingHeader}><span style={styles.trackingBadge}>📋 Seguimiento</span><h2>{formData.nombreEmpresa || 'Tu empresa'} S.A.S.</h2><p>Código: {trackingCode}</p></div>
-            <div style={styles.timeline}>
-              {[{icon: '📝', title: 'Solicitud recibida', desc: 'Revisando información', done: true}, {icon: '📄', title: 'Documentos generados', desc: 'Estatutos y poderes listos', done: false}, {icon: '👨‍⚖️', title: 'Contacto del abogado', desc: 'Te llamaremos pronto', done: false}, {icon: '🏛️', title: 'Radicado en Cámara', desc: 'En proceso', done: false}, {icon: '🎉', title: '¡Constituida!', desc: 'Lista para operar', done: false}].map((step, i) => (
-                <div key={i} style={{...styles.timelineItem, opacity: step.done ? 1 : 0.4}}><div style={{...styles.timelineDot, background: step.done ? '#28a745' : '#ddd', color: step.done ? '#fff' : '#666'}}>{step.done ? '✓' : step.icon}</div><div><strong>{step.title}</strong><p style={styles.timelineDesc}>{step.desc}</p></div></div>
+  // ============================================================================
+  // FORM WIZARD
+  // ============================================================================
+  const FormWizard = () => (
+    <div style={styles.formContainer}>
+      {/* Progress Bar */}
+      <div style={styles.progressBar}>
+        <div style={styles.progressLine}>
+          <div style={{
+            ...styles.progressLineFill,
+            width: `${((currentStep - 1) / 3) * 100}%`,
+          }}></div>
+        </div>
+        {['Empresa', 'Accionistas', 'Confirmar', 'Listo'].map((label, i) => (
+          <div key={i} style={styles.stepIndicator}>
+            <div style={{
+              ...styles.stepCircle,
+              background: currentStep > i + 1 ? '#22c55e' : currentStep === i + 1 ? '#D85A2D' : '#e5e7eb',
+              color: currentStep >= i + 1 ? '#fff' : '#9ca3af',
+            }}>
+              {currentStep > i + 1 ? '✓' : i + 1}
+            </div>
+            <span style={{
+              ...styles.stepLabel,
+              color: currentStep >= i + 1 ? '#232C54' : '#9ca3af',
+            }}>
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div style={styles.formCard}>
+        {/* Step 1: Datos de la empresa */}
+        {currentStep === 1 && (
+          <>
+            <h2 style={styles.formTitle}>Datos de tu empresa</h2>
+            <p style={styles.formSubtitle}>Información básica para constituir tu S.A.S.</p>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>
+                Nombre de la empresa<span style={styles.labelRequired}>*</span>
+              </label>
+              <input
+                type="text"
+                name="nombreEmpresa"
+                style={styles.input}
+                value={formData.nombreEmpresa}
+                onChange={handleInputChange}
+                placeholder="Mi Empresa (sin S.A.S.)"
+              />
+              <small style={{color: '#666', fontSize: '13px'}}>
+                Se agregará automáticamente "S.A.S." al final
+              </small>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>
+                Objeto social / Actividad económica<span style={styles.labelRequired}>*</span>
+              </label>
+              <textarea
+                name="objetoSocial"
+                style={styles.textarea}
+                value={formData.objetoSocial}
+                onChange={handleInputChange}
+                placeholder="Describe las actividades que realizará tu empresa. Ej: Desarrollo de software, consultoría tecnológica, comercialización de productos digitales..."
+              />
+              <small style={{color: '#666', fontSize: '13px'}}>
+                Describe claramente qué hará tu empresa. Esto aparecerá en los estatutos.
+              </small>
+            </div>
+
+            <div style={styles.inputRow}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  Ciudad de domicilio<span style={styles.labelRequired}>*</span>
+                </label>
+                <input
+                  type="text"
+                  name="ciudadSociedad"
+                  style={styles.input}
+                  value={formData.ciudadSociedad}
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Dirección</label>
+                <input
+                  type="text"
+                  name="direccionSociedad"
+                  style={styles.input}
+                  value={formData.direccionSociedad}
+                  onChange={handleInputChange}
+                  placeholder="Calle/Carrera..."
+                />
+              </div>
+            </div>
+
+            <div style={styles.inputRow}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Teléfono</label>
+                <input
+                  type="tel"
+                  name="telefonoSociedad"
+                  style={styles.input}
+                  value={formData.telefonoSociedad}
+                  onChange={handleInputChange}
+                  placeholder="3001234567"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Email de la empresa</label>
+                <input
+                  type="email"
+                  name="emailSociedad"
+                  style={styles.input}
+                  value={formData.emailSociedad}
+                  onChange={handleInputChange}
+                  placeholder="contacto@miempresa.com"
+                />
+              </div>
+            </div>
+
+            {/* Capital Social */}
+            <div style={styles.capitalInfo}>
+              <div style={styles.capitalInfoTitle}>
+                💡 ¿Qué es el capital social?
+              </div>
+              <p style={{fontSize: '14px', color: '#555', lineHeight: '1.6', margin: 0}}>
+                <strong>Autorizado:</strong> Límite máximo de capital que puede tener la empresa.<br/>
+                <strong>Suscrito:</strong> Capital que los accionistas se comprometen a aportar.<br/>
+                <strong>Pagado:</strong> Capital efectivamente aportado al momento de la constitución.
+              </p>
+            </div>
+
+            <label style={styles.label}>Selecciona un esquema de capital</label>
+            <div style={styles.capitalPresetGrid}>
+              {[
+                { key: 'startup', label: 'Startup', auth: '100M', sus: '1M' },
+                { key: 'pyme', label: 'PyME', auth: '500M', sus: '50M' },
+                { key: 'grande', label: 'Grande', auth: '1.000M', sus: '100M' },
+                { key: 'personalizado', label: 'Personalizado', auth: '...', sus: '...' },
+              ].map(preset => (
+                <button
+                  key={preset.key}
+                  type="button"
+                  style={{
+                    ...styles.capitalPresetBtn,
+                    ...(formData.capitalPreset === preset.key ? styles.capitalPresetActive : {}),
+                  }}
+                  onClick={() => handleCapitalPreset(preset.key)}
+                >
+                  <div style={{fontWeight: '600', color: '#232C54', marginBottom: '4px'}}>
+                    {preset.label}
+                  </div>
+                  <div style={{fontSize: '12px', color: '#666'}}>
+                    Aut: {preset.auth} / Sus: {preset.sus}
+                  </div>
+                </button>
               ))}
             </div>
-            <div style={styles.contactInfo}>¿Preguntas? <a href="mailto:info@due-legal.com" style={styles.link}>info@due-legal.com</a></div>
+
+            {formData.capitalPreset === 'personalizado' && (
+              <div style={styles.inputRow}>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Capital Autorizado</label>
+                  <input
+                    type="number"
+                    name="capitalAutorizado"
+                    style={styles.input}
+                    value={formData.capitalAutorizado}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Capital Suscrito</label>
+                  <input
+                    type="number"
+                    name="capitalSuscrito"
+                    style={styles.input}
+                    value={formData.capitalSuscrito}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Capital Pagado</label>
+                  <input
+                    type="number"
+                    name="capitalPagado"
+                    style={styles.input}
+                    value={formData.capitalPagado}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div style={styles.buttonRow}>
+              <button 
+                type="button" 
+                style={styles.btnSecondary}
+                onClick={() => setCurrentView('landing')}
+              >
+                ← Volver
+              </button>
+              <button 
+                type="button" 
+                style={styles.btnPrimary}
+                onClick={nextStep}
+              >
+                Continuar →
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 2: Accionistas */}
+        {currentStep === 2 && (
+          <>
+            <h2 style={styles.formTitle}>Accionistas</h2>
+            <p style={styles.formSubtitle}>
+              Puedes agregar personas naturales o jurídicas como accionistas
+            </p>
+
+            {formData.accionistas.map((acc, index) => renderAccionista(acc, index))}
+
+            {/* Resumen porcentajes */}
+            <div style={{
+              background: totalPorcentaje === 100 ? '#f0fdf4' : '#fef3c7',
+              border: `1px solid ${totalPorcentaje === 100 ? '#86efac' : '#fcd34d'}`,
+              borderRadius: '10px',
+              padding: '16px',
+              marginBottom: '20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span style={{fontWeight: '500'}}>Total participación:</span>
+              <span style={{
+                fontWeight: '700',
+                fontSize: '20px',
+                color: totalPorcentaje === 100 ? '#16a34a' : '#d97706',
+              }}>
+                {totalPorcentaje}%
+              </span>
+            </div>
+
+            <button
+              type="button"
+              style={styles.addBtn}
+              onClick={addAccionista}
+            >
+              + Agregar otro accionista
+            </button>
+
+            <div style={styles.buttonRow}>
+              <button 
+                type="button" 
+                style={styles.btnSecondary}
+                onClick={prevStep}
+              >
+                ← Anterior
+              </button>
+              <button 
+                type="button" 
+                style={styles.btnPrimary}
+                onClick={nextStep}
+              >
+                Continuar →
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 3: Confirmación */}
+        {currentStep === 3 && (
+          <>
+            <h2 style={styles.formTitle}>Confirma tu solicitud</h2>
+            <p style={styles.formSubtitle}>Revisa la información antes de enviar</p>
+
+            {/* Resumen empresa */}
+            <div style={{background: '#f8f9fc', borderRadius: '12px', padding: '20px', marginBottom: '20px'}}>
+              <h3 style={{margin: '0 0 16px', color: '#232C54'}}>🏢 Datos de la empresa</h3>
+              <div style={{display: 'grid', gap: '8px'}}>
+                <div><strong>Nombre:</strong> {formData.nombreEmpresa} S.A.S.</div>
+                <div><strong>Objeto social:</strong> {formData.objetoSocial}</div>
+                <div><strong>Ciudad:</strong> {formData.ciudadSociedad}</div>
+                <div><strong>Capital pagado:</strong> {formatCurrency(formData.capitalPagado)}</div>
+              </div>
+            </div>
+
+            {/* Resumen accionistas */}
+            <div style={{background: '#f8f9fc', borderRadius: '12px', padding: '20px', marginBottom: '20px'}}>
+              <h3 style={{margin: '0 0 16px', color: '#232C54'}}>👥 Accionistas ({formData.accionistas.length})</h3>
+              {formData.accionistas.map((acc, i) => {
+                const isNatural = acc.tipoPersona === 'natural';
+                const nombre = isNatural ? acc.nombres : acc.razonSocial;
+                const doc = isNatural ? `${acc.tipoDocumento} ${acc.numeroDocumento}` : `NIT ${acc.nit}`;
+                
+                return (
+                  <div key={i} style={{
+                    padding: '12px',
+                    background: '#fff',
+                    borderRadius: '8px',
+                    marginBottom: '8px',
+                    border: acc.esGerente ? '2px solid #D85A2D' : '1px solid #e5e7eb',
+                  }}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <div>
+                        <div style={{fontWeight: '600'}}>
+                          {isNatural ? '👤' : '🏢'} {nombre || 'Sin nombre'}
+                        </div>
+                        <div style={{fontSize: '13px', color: '#666'}}>{doc}</div>
+                        {!isNatural && acc.repLegalNombres && (
+                          <div style={{fontSize: '13px', color: '#666'}}>
+                            Rep. Legal: {acc.repLegalNombres}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{textAlign: 'right'}}>
+                        <div style={{fontWeight: '700', color: '#D85A2D'}}>{acc.porcentaje}%</div>
+                        {acc.esGerente && <div style={{fontSize: '12px', color: '#d97706'}}>👔 Gerente</div>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Alertas */}
+            {tieneExtranjeros && (
+              <div style={{
+                background: '#fef3c7',
+                border: '1px solid #fcd34d',
+                borderRadius: '10px',
+                padding: '16px',
+                marginBottom: '20px',
+              }}>
+                ⚠️ <strong>Hay accionistas extranjeros.</strong> Se requieren documentos adicionales para el proceso.
+              </div>
+            )}
+
+            {/* Política de datos */}
+            <label style={styles.checkbox}>
+              <input
+                type="checkbox"
+                name="aceptaPolitica"
+                checked={formData.aceptaPolitica}
+                onChange={handleInputChange}
+                style={styles.checkboxInput}
+              />
+              <span style={{fontSize: '14px', color: '#555'}}>
+                Acepto la{' '}
+                <a 
+                  href="https://cdn.prod.website-files.com/68d59253eac398f3c33af169/69174eb3a1ff60c9541a18d2_Poli%CC%81tica%20de%20proteccio%CC%81n%20de%20Datos%20Due%20Legal%20(1).docx.pdf" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={styles.link}
+                >
+                  política de tratamiento de datos personales
+                </a>
+              </span>
+            </label>
+
+            <div style={styles.buttonRow}>
+              <button 
+                type="button" 
+                style={styles.btnSecondary}
+                onClick={prevStep}
+              >
+                ← Anterior
+              </button>
+              <button 
+                type="button" 
+                style={{
+                  ...styles.btnPrimary,
+                  opacity: isSubmitting ? 0.7 : 1,
+                }}
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? '⏳ Enviando...' : '✓ Enviar solicitud'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 4: Éxito */}
+        {currentStep === 4 && (
+          <div style={styles.successCard}>
+            <div style={styles.successIcon}>✓</div>
+            <h2 style={{fontSize: '28px', color: '#232C54', marginBottom: '16px'}}>
+              ¡Solicitud enviada!
+            </h2>
+            <p style={{color: '#666', marginBottom: '32px'}}>
+              Hemos recibido tu información. Un abogado la revisará pronto.
+            </p>
+            
+            <div style={styles.trackingCodeDisplay}>
+              <div style={{marginBottom: '8px', opacity: 0.8}}>Tu código de seguimiento:</div>
+              <div style={styles.trackingCodeValue}>{trackingCode}</div>
+            </div>
+            
+            <p style={{fontSize: '14px', color: '#666', marginBottom: '32px'}}>
+              Guarda este código para consultar el estado de tu solicitud.
+              También te enviamos un email de confirmación.
+            </p>
+            
+            <button 
+              style={styles.btnPrimary}
+              onClick={() => {
+                setCurrentView('landing');
+                setCurrentStep(1);
+                setFormData({
+                  nombreEmpresa: '',
+                  objetoSocial: '',
+                  ciudadSociedad: 'Bogotá D.C.',
+                  direccionSociedad: '',
+                  telefonoSociedad: '',
+                  emailSociedad: '',
+                  capitalPreset: 'startup',
+                  capitalAutorizado: '100000000',
+                  capitalSuscrito: '1000000',
+                  capitalPagado: '1000000',
+                  accionistas: [{
+                    id: 1,
+                    tipoPersona: 'natural',
+                    nombres: '',
+                    tipoDocumento: 'CC',
+                    numeroDocumento: '',
+                    lugarExpedicion: '',
+                    nacionalidad: 'Colombiana',
+                    razonSocial: '',
+                    nit: '',
+                    repLegalNombres: '',
+                    repLegalCedula: '',
+                    ciudadDomicilio: '',
+                    direccionResidencia: '',
+                    email: '',
+                    telefono: '',
+                    porcentaje: 100,
+                    esGerente: true,
+                    documentoFile: null,
+                    documentoFileName: '',
+                    documentoBase64: '',
+                  }],
+                  gerenteSuplente: {
+                    tiene: false,
+                    nombres: '',
+                    tipoDocumento: 'CC',
+                    numeroDocumento: '',
+                    lugarExpedicion: '',
+                  },
+                  aceptaPolitica: false,
+                });
+              }}
+            >
+              Volver al inicio
+            </button>
           </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ============================================================================
+  // TRACKING PAGE
+  // ============================================================================
+  const TrackingPage = () => {
+    const getStatusColor = (estado) => {
+      const colors = {
+        'Recibida': { bg: '#e0f2fe', text: '#0369a1' },
+        'En revisión': { bg: '#fef3c7', text: '#d97706' },
+        'Documentos listos': { bg: '#d1fae5', text: '#059669' },
+        'Pendiente firma': { bg: '#fce7f3', text: '#be185d' },
+        'Pendiente pago': { bg: '#fee2e2', text: '#dc2626' },
+        'En Cámara': { bg: '#e0e7ff', text: '#4338ca' },
+        'Constituida': { bg: '#dcfce7', text: '#16a34a' },
+        'Cancelada': { bg: '#f3f4f6', text: '#6b7280' },
+      };
+      return colors[estado] || colors['Recibida'];
+    };
+
+    return (
+      <div style={styles.formContainer}>
+        <div style={styles.formCard}>
+          <h2 style={styles.formTitle}>Consulta tu solicitud</h2>
+          <p style={styles.formSubtitle}>Ingresa tu código de seguimiento</p>
+          
+          <form onSubmit={handleTrackingSubmit} style={styles.trackingForm}>
+            <input
+              type="text"
+              name="codigo"
+              style={styles.trackingInput}
+              placeholder="Ej: DL-ABC123"
+              maxLength={10}
+            />
+            <button 
+              type="submit" 
+              style={styles.btnPrimary}
+              disabled={trackingLoading}
+            >
+              {trackingLoading ? '⏳' : '🔍'} Buscar
+            </button>
+          </form>
+          
+          {trackingError && (
+            <div style={{
+              background: '#fee2e2',
+              border: '1px solid #fecaca',
+              borderRadius: '10px',
+              padding: '16px',
+              color: '#dc2626',
+              marginBottom: '20px',
+            }}>
+              ❌ {trackingError}
+            </div>
+          )}
+          
+          {trackingData && (
+            <div style={{
+              background: '#f8f9fc',
+              borderRadius: '16px',
+              padding: '24px',
+            }}>
+              <div style={{textAlign: 'center', marginBottom: '24px'}}>
+                <div style={{fontSize: '14px', color: '#666', marginBottom: '8px'}}>Estado actual</div>
+                <span style={{
+                  ...styles.statusBadge,
+                  background: getStatusColor(trackingData.estado).bg,
+                  color: getStatusColor(trackingData.estado).text,
+                }}>
+                  {trackingData.estado}
+                </span>
+              </div>
+              
+              <div style={{display: 'grid', gap: '12px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{color: '#666'}}>Código:</span>
+                  <strong>{trackingData.codigo}</strong>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{color: '#666'}}>Empresa:</span>
+                  <strong>{trackingData.empresa}</strong>
+                </div>
+                {trackingData.nit && (
+                  <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                    <span style={{color: '#666'}}>NIT:</span>
+                    <strong>{trackingData.nit}</strong>
+                  </div>
+                )}
+              </div>
+              
+              {trackingData.estado === 'Constituida' && trackingData.certificadoUrl && (
+                <div style={styles.infoBox}>
+                  <div style={{fontWeight: '600', color: '#16a34a', marginBottom: '12px'}}>
+                    🎉 ¡Tu empresa está constituida!
+                  </div>
+                  <a 
+                    href={trackingData.certificadoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-block',
+                      background: '#16a34a',
+                      color: '#fff',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      textDecoration: 'none',
+                      fontWeight: '600',
+                    }}
+                  >
+                    📄 Descargar Certificado
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <button 
+            type="button"
+            style={{...styles.btnSecondary, marginTop: '24px', width: '100%'}}
+            onClick={() => setCurrentView('landing')}
+          >
+            ← Volver al inicio
+          </button>
         </div>
       </div>
     );
-  }
+  };
 
-  return null;
+  // ============================================================================
+  // RENDER PRINCIPAL
+  // ============================================================================
+  return (
+    <div style={styles.container}>
+      {currentView !== 'landing' && (
+        <header style={styles.header}>
+          <div style={styles.logo}>Due Legal</div>
+          <button 
+            style={styles.backBtn}
+            onClick={() => setCurrentView('landing')}
+          >
+            ← Inicio
+          </button>
+        </header>
+      )}
+
+      {currentView === 'landing' && (
+        <header style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          padding: '20px 24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          zIndex: 10,
+        }}>
+          <div style={{...styles.logo, color: '#fff'}}>Due Legal</div>
+        </header>
+      )}
+
+      {currentView === 'landing' && <LandingPage />}
+      {currentView === 'form' && <FormWizard />}
+      {currentView === 'tracking' && <TrackingPage />}
+
+      {/* Footer */}
+      <footer style={{
+        background: '#232C54',
+        color: '#fff',
+        padding: '40px 24px',
+        textAlign: 'center',
+      }}>
+        <div style={{fontSize: '20px', fontWeight: '700', marginBottom: '12px'}}>Due Legal</div>
+        <p style={{opacity: 0.7, marginBottom: '16px'}}>
+          Simplificamos el derecho para tu empresa
+        </p>
+        <div style={{fontSize: '14px', opacity: 0.5}}>
+          © 2026 Due Legal. Todos los derechos reservados.
+        </div>
+      </footer>
+    </div>
+  );
 }
-
-const styles = {
-  container: { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", background: '#f8f9fc', minHeight: '100vh', color: '#1a1a2e' },
-  hero: { textAlign: 'center', padding: '50px 24px', background: 'linear-gradient(135deg, #232C54 0%, #1a1f3d 100%)', color: '#fff' },
-  badge: { display: 'inline-block', background: 'rgba(216, 90, 45, 0.2)', color: '#ff8c5a', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', marginBottom: '20px' },
-  heroTitle: { fontSize: 'clamp(26px, 5vw, 40px)', fontWeight: '800', marginBottom: '16px', lineHeight: '1.2' },
-  highlight: { color: '#D85A2D' },
-  heroText: { fontSize: '16px', color: 'rgba(255,255,255,0.8)', maxWidth: '500px', margin: '0 auto 28px', lineHeight: '1.6' },
-  heroActions: { display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' },
-  process: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', padding: '50px 24px', background: '#fff', flexWrap: 'wrap' },
-  processStep: { textAlign: 'center', maxWidth: '180px' },
-  processIcon: { fontSize: '36px', display: 'block', marginBottom: '10px' },
-  processArrow: { fontSize: '24px', color: '#D85A2D', fontWeight: 'bold' },
-  priceSection: { padding: '50px 24px', display: 'flex', justifyContent: 'center' },
-  priceCard: { background: '#fff', borderRadius: '20px', padding: '40px 32px', textAlign: 'center', maxWidth: '380px', boxShadow: '0 10px 40px rgba(0,0,0,0.08)' },
-  priceLabel: { background: '#D85A2D', color: '#fff', padding: '6px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', display: 'inline-block', marginBottom: '16px' },
-  priceAmount: { fontSize: '44px', fontWeight: '800', color: '#232C54' },
-  priceCurrency: { fontSize: '16px', color: '#666', marginBottom: '20px' },
-  priceList: { listStyle: 'none', textAlign: 'left', fontSize: '14px', lineHeight: '2', marginBottom: '20px', padding: '0' },
-  priceNote: { fontSize: '12px', color: '#888', marginBottom: '20px', fontStyle: 'italic' },
-  btnPrimary: { display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px', background: '#D85A2D', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' },
-  btnOutline: { display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px', background: 'transparent', color: '#232C54', border: '2px solid #ddd', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' },
-  btnOutlineWhite: { display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px', background: 'transparent', color: '#fff', border: '2px solid rgba(255,255,255,0.5)', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' },
-  btnDisabled: { opacity: 0.5, cursor: 'not-allowed' },
-  formContainer: { maxWidth: '680px', margin: '0 auto', padding: '20px' },
-  formHeader: { display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' },
-  backBtn: { background: 'none', border: 'none', color: '#666', fontSize: '14px', cursor: 'pointer' },
-  progressInfo: { flex: 1 },
-  progressBar: { height: '6px', background: '#e0e4ec', borderRadius: '3px', marginTop: '6px', overflow: 'hidden' },
-  progressFill: { height: '100%', background: '#D85A2D', borderRadius: '3px', transition: 'width 0.3s' },
-  stepsNav: { display: 'flex', gap: '8px', marginBottom: '20px' },
-  stepTab: { flex: 1, display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', background: '#fff', borderRadius: '10px', opacity: 0.5 },
-  stepTabActive: { opacity: 1, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
-  stepTabDone: { opacity: 1 },
-  stepNum: { width: '24px', height: '24px', borderRadius: '50%', background: '#e0e4ec', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '600' },
-  stepLabel: { fontSize: '12px', fontWeight: '500' },
-  formCard: { background: '#fff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', overflow: 'hidden' },
-  stepContent: { padding: '28px' },
-  stepHeader: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' },
-  emoji: { fontSize: '28px' },
-  stepTitle: { fontSize: '20px', fontWeight: '700', color: '#232C54' },
-  field: { marginBottom: '18px' },
-  fieldRow: { display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' },
-  fieldHalf: { flex: 1, minWidth: '140px' },
-  label: { display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#333' },
-  labelSmall: { display: 'block', fontSize: '12px', fontWeight: '500', marginBottom: '6px', color: '#666' },
-  input: { width: '100%', padding: '12px 14px', border: '2px solid #e0e4ec', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' },
-  inputLarge: { flex: 1, padding: '14px 16px', border: '2px solid #e0e4ec', borderRadius: '8px 0 0 8px', fontSize: '16px', fontWeight: '600', outline: 'none' },
-  inputGroup: { display: 'flex' },
-  inputAddon: { padding: '12px 14px', background: '#f0f2f5', border: '2px solid #e0e4ec', borderLeft: 'none', borderRadius: '0 8px 8px 0', fontSize: '14px', color: '#666', fontWeight: '600', whiteSpace: 'nowrap' },
-  select: { width: '100%', padding: '12px 14px', border: '2px solid #e0e4ec', borderRadius: '8px', fontSize: '14px', background: '#fff', cursor: 'pointer', outline: 'none' },
-  textarea: { width: '100%', padding: '12px 14px', border: '2px solid #e0e4ec', borderRadius: '8px', fontSize: '14px', resize: 'vertical', minHeight: '80px', outline: 'none', boxSizing: 'border-box' },
-  chips: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' },
-  chip: { padding: '6px 12px', background: '#f0f2f5', border: 'none', borderRadius: '16px', fontSize: '12px', color: '#666', cursor: 'pointer' },
-  hint: { fontSize: '14px', color: '#888', marginBottom: '20px' },
-  percentBar: { padding: '14px 16px', background: '#f8f9fc', borderRadius: '10px', marginBottom: '20px', border: '2px solid #ddd' },
-  percentLabel: { fontSize: '13px', marginBottom: '8px' },
-  percentTrack: { height: '8px', background: '#e0e4ec', borderRadius: '4px', overflow: 'hidden' },
-  percentFill: { height: '100%', borderRadius: '4px', transition: 'all 0.3s' },
-  socioCard: { background: '#f8f9fc', borderRadius: '12px', padding: '18px', marginBottom: '14px', border: '2px solid #e0e4ec' },
-  socioHeader: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' },
-  socioNum: { fontSize: '14px', fontWeight: '700', color: '#232C54' },
-  gerenteBadge: { background: '#232C54', color: '#fff', padding: '4px 10px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' },
-  removeBtn: { marginLeft: 'auto', background: 'none', border: 'none', color: '#dc3545', fontSize: '18px', cursor: 'pointer' },
-  checkLabel: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer', marginTop: '12px', flexWrap: 'wrap' },
-  checkbox: { width: '18px', height: '18px', accentColor: '#D85A2D', flexShrink: 0 },
-  addBtn: { width: '100%', padding: '14px', background: 'transparent', border: '2px dashed #D85A2D', borderRadius: '10px', color: '#D85A2D', fontSize: '14px', fontWeight: '600', cursor: 'pointer', marginBottom: '20px' },
-  
-  // Upload styles
-  uploadSection: { marginTop: '16px', marginBottom: '12px' },
-  uploadArea: { position: 'relative' },
-  fileInput: { position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' },
-  uploadLabel: { display: 'block', padding: '16px', background: '#fff', border: '2px dashed #d0d4dc', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', fontSize: '13px', color: '#666', transition: 'all 0.2s' },
-  uploadSuccess: { color: '#28a745', fontWeight: '600' },
-  
-  // Suplente
-  suplenteSection: { marginTop: '20px', paddingTop: '20px', borderTop: '2px solid #e0e4ec' },
-  suplenteFields: { marginTop: '16px', padding: '16px', background: '#fff', borderRadius: '10px', border: '1px solid #e0e4ec' },
-  
-  // Capital - RESPONSIVE
-  capitalOptions: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '24px' },
-  capitalBtn: { padding: '14px 10px', background: '#f8f9fc', border: '2px solid #e0e4ec', borderRadius: '10px', textAlign: 'center', cursor: 'pointer' },
-  capitalBtnActive: { borderColor: '#D85A2D', background: 'rgba(216, 90, 45, 0.05)' },
-  capitalLabel: { display: 'block', fontSize: '13px', fontWeight: '600', color: '#232C54' },
-  capitalDesc: { display: 'block', fontSize: '11px', color: '#888', marginTop: '2px' },
-  capitalFieldsContainer: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '20px' },
-  capitalField: { textAlign: 'center' },
-  capitalFieldLabel: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#666', marginBottom: '8px' },
-  capitalHint: { display: 'block', fontSize: '11px', color: '#999', marginTop: '6px' },
-  moneyInput: { display: 'flex', alignItems: 'center' },
-  moneyPrefix: { padding: '12px', background: '#f0f2f5', border: '2px solid #e0e4ec', borderRight: 'none', borderRadius: '8px 0 0 8px', fontSize: '14px', color: '#666' },
-  inputMoney: { flex: 1, padding: '12px', border: '2px solid #e0e4ec', borderRadius: '0 8px 8px 0', fontSize: '14px', fontWeight: '600', textAlign: 'right', outline: 'none', minWidth: '0' },
-  tipBox: { padding: '14px 16px', background: 'rgba(141, 181, 211, 0.15)', borderRadius: '10px', fontSize: '13px' },
-  
-  // Summary
-  summary: { marginBottom: '20px' },
-  summarySection: { background: '#f8f9fc', borderRadius: '10px', padding: '16px', marginBottom: '12px' },
-  summaryRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e0e4ec', fontSize: '13px', flexWrap: 'wrap', gap: '8px' },
-  miniTag: { background: '#232C54', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', marginLeft: '6px' },
-  docTag: { marginLeft: '6px' },
-  priceBox: { background: '#232C54', borderRadius: '12px', padding: '18px', marginBottom: '18px', color: '#fff' },
-  priceRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', flexWrap: 'wrap', gap: '8px' },
-  priceFinal: { fontSize: '20px', color: '#D85A2D' },
-  foreignAlert: { display: 'flex', gap: '12px' },
-  nextStepBox: { display: 'flex', gap: '12px', padding: '16px', background: 'rgba(216, 90, 45, 0.08)', borderRadius: '10px', marginBottom: '18px', fontSize: '13px' },
-  termsBox: { paddingTop: '16px', borderTop: '2px solid #e0e4ec' },
-  link: { color: '#D85A2D' },
-  formNav: { display: 'flex', padding: '18px 28px', borderTop: '1px solid #e0e4ec', background: '#fafbfc', flexWrap: 'wrap', gap: '12px' },
-  
-  // Success
-  successContainer: { padding: '40px 20px', display: 'flex', justifyContent: 'center' },
-  successCard: { background: '#fff', borderRadius: '20px', padding: '40px 32px', maxWidth: '450px', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.08)' },
-  successIcon: { fontSize: '56px', marginBottom: '16px' },
-  successTitle: { fontSize: '24px', fontWeight: '700', marginBottom: '12px' },
-  successText: { fontSize: '14px', color: '#666', marginBottom: '24px', lineHeight: '1.6' },
-  codeBox: { background: '#f8f9fc', borderRadius: '12px', padding: '18px', marginBottom: '24px' },
-  codeLabel: { display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' },
-  codeValue: { display: 'block', fontSize: '22px', fontWeight: '700', color: '#D85A2D', letterSpacing: '2px' },
-  codeHint: { display: 'block', fontSize: '11px', color: '#888', marginTop: '6px' },
-  nextSteps: { textAlign: 'left', background: '#f8f9fc', borderRadius: '12px', padding: '18px', marginBottom: '24px', fontSize: '13px' },
-  successActions: { display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' },
-  
-  // Tracking
-  trackingContainer: { padding: '20px', maxWidth: '550px', margin: '0 auto' },
-  trackingCard: { background: '#fff', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' },
-  trackingHeader: { textAlign: 'center', marginBottom: '28px' },
-  trackingBadge: { display: 'inline-block', background: 'rgba(216, 90, 45, 0.1)', color: '#D85A2D', padding: '6px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '600', marginBottom: '10px' },
-  timeline: { marginBottom: '24px' },
-  timelineItem: { display: 'flex', gap: '14px', padding: '14px 0' },
-  timelineDot: { width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 },
-  timelineDesc: { fontSize: '12px', color: '#888', margin: '2px 0 0' },
-  contactInfo: { textAlign: 'center', fontSize: '13px', color: '#666', paddingTop: '16px', borderTop: '1px solid #eee' },
-};
