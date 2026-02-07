@@ -1,7 +1,604 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
+// ============================================================================
+// ESTILOS FUERA DEL COMPONENTE (evita re-renders)
+// ============================================================================
+const styles = {
+  container: {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #f8f9fc 0%, #e8ecf4 100%)',
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+  },
+  header: {
+    background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
+    padding: '20px 24px',
+    color: '#fff',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    boxShadow: '0 4px 20px rgba(35, 44, 84, 0.3)',
+  },
+  logo: {
+    fontSize: 'clamp(20px, 4vw, 26px)',
+    fontWeight: '700',
+    letterSpacing: '-0.5px',
+  },
+  backBtn: {
+    background: 'rgba(255,255,255,0.15)',
+    border: 'none',
+    color: '#fff',
+    padding: '10px 20px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    transition: 'all 0.2s',
+    backdropFilter: 'blur(10px)',
+  },
+  heroSection: {
+    background: 'linear-gradient(135deg, #232C54 0%, #1a2140 50%, #0f1629 100%)',
+    padding: 'clamp(60px, 10vw, 100px) 24px',
+    textAlign: 'center',
+    color: '#fff',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+    opacity: 0.5,
+  },
+  heroContent: {
+    position: 'relative',
+    zIndex: 1,
+    maxWidth: '800px',
+    margin: '0 auto',
+  },
+  heroBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(216, 90, 45, 0.2)',
+    border: '1px solid rgba(216, 90, 45, 0.4)',
+    padding: '8px 16px',
+    borderRadius: '50px',
+    fontSize: '14px',
+    fontWeight: '500',
+    marginBottom: '24px',
+    color: '#FFB088',
+  },
+  heroTitle: {
+    fontSize: 'clamp(32px, 6vw, 52px)',
+    fontWeight: '800',
+    lineHeight: '1.15',
+    marginBottom: '20px',
+    letterSpacing: '-1px',
+  },
+  heroHighlight: {
+    background: 'linear-gradient(90deg, #D85A2D, #FF8C5A)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+  },
+  heroSubtitle: {
+    fontSize: 'clamp(16px, 2.5vw, 20px)',
+    opacity: 0.85,
+    maxWidth: '600px',
+    margin: '0 auto 40px',
+    lineHeight: '1.6',
+  },
+  heroCTA: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    alignItems: 'center',
+  },
+  primaryBtn: {
+    background: 'linear-gradient(135deg, #D85A2D 0%, #e86a3d 100%)',
+    color: '#fff',
+    border: 'none',
+    padding: '18px 48px',
+    fontSize: '18px',
+    fontWeight: '600',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    boxShadow: '0 4px 20px rgba(216, 90, 45, 0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  secondaryBtn: {
+    background: 'transparent',
+    color: '#fff',
+    border: '2px solid rgba(255,255,255,0.3)',
+    padding: '16px 40px',
+    fontSize: '16px',
+    fontWeight: '500',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+  },
+  featuresSection: {
+    padding: '80px 24px',
+    maxWidth: '1200px',
+    margin: '0 auto',
+  },
+  sectionTitle: {
+    textAlign: 'center',
+    fontSize: 'clamp(24px, 4vw, 36px)',
+    fontWeight: '700',
+    color: '#232C54',
+    marginBottom: '16px',
+  },
+  sectionSubtitle: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: '18px',
+    marginBottom: '48px',
+  },
+  featuresGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '24px',
+  },
+  featureCard: {
+    background: '#fff',
+    borderRadius: '16px',
+    padding: '32px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+    transition: 'transform 0.3s, box-shadow 0.3s',
+    border: '1px solid rgba(0,0,0,0.05)',
+  },
+  featureIcon: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '20px',
+    fontSize: '26px',
+  },
+  featureTitle: {
+    fontSize: '20px',
+    fontWeight: '600',
+    color: '#232C54',
+    marginBottom: '12px',
+  },
+  featureDesc: {
+    color: '#666',
+    lineHeight: '1.6',
+    fontSize: '15px',
+  },
+  priceSection: {
+    background: '#fff',
+    padding: '60px 24px',
+    textAlign: 'center',
+  },
+  priceCard: {
+    maxWidth: '480px',
+    margin: '0 auto',
+    background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
+    borderRadius: '24px',
+    padding: '48px 40px',
+    color: '#fff',
+    boxShadow: '0 20px 60px rgba(35, 44, 84, 0.3)',
+  },
+  priceAmount: {
+    fontSize: '48px',
+    fontWeight: '800',
+    marginBottom: '8px',
+  },
+  priceIva: {
+    fontSize: '16px',
+    opacity: 0.7,
+    marginBottom: '32px',
+  },
+  priceIncludes: {
+    textAlign: 'left',
+    marginBottom: '32px',
+  },
+  priceItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '12px 0',
+    borderBottom: '1px solid rgba(255,255,255,0.1)',
+    fontSize: '15px',
+  },
+  formContainer: {
+    maxWidth: '800px',
+    margin: '0 auto',
+    padding: '40px 24px',
+  },
+  progressBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '40px',
+    position: 'relative',
+  },
+  progressLine: {
+    position: 'absolute',
+    top: '20px',
+    left: '10%',
+    right: '10%',
+    height: '3px',
+    background: '#e0e0e0',
+    zIndex: 0,
+  },
+  stepIndicator: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    zIndex: 1,
+    flex: 1,
+  },
+  stepLabel: {
+    fontSize: '13px',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  formCard: {
+    background: '#fff',
+    borderRadius: '20px',
+    padding: 'clamp(24px, 5vw, 40px)',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
+  },
+  formTitle: {
+    fontSize: 'clamp(22px, 4vw, 28px)',
+    fontWeight: '700',
+    color: '#232C54',
+    marginBottom: '8px',
+  },
+  formSubtitle: {
+    color: '#666',
+    marginBottom: '32px',
+    fontSize: '15px',
+  },
+  inputGroup: {
+    marginBottom: '24px',
+  },
+  label: {
+    display: 'block',
+    marginBottom: '8px',
+    fontWeight: '500',
+    color: '#333',
+    fontSize: '14px',
+  },
+  labelRequired: {
+    color: '#D85A2D',
+    marginLeft: '4px',
+  },
+  input: {
+    width: '100%',
+    padding: '14px 16px',
+    border: '2px solid #e8ecf4',
+    borderRadius: '10px',
+    fontSize: '16px',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+  textarea: {
+    width: '100%',
+    padding: '14px 16px',
+    border: '2px solid #e8ecf4',
+    borderRadius: '10px',
+    fontSize: '16px',
+    minHeight: '100px',
+    resize: 'vertical',
+    outline: 'none',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+  },
+  select: {
+    width: '100%',
+    padding: '14px 16px',
+    border: '2px solid #e8ecf4',
+    borderRadius: '10px',
+    fontSize: '16px',
+    outline: 'none',
+    boxSizing: 'border-box',
+    background: '#fff',
+  },
+  inputRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '16px',
+  },
+  tipoPersonaSelector: {
+    display: 'flex',
+    gap: '12px',
+    marginBottom: '24px',
+  },
+  tipoPersonaBtn: {
+    flex: 1,
+    padding: '16px',
+    border: '2px solid #e8ecf4',
+    borderRadius: '12px',
+    background: '#fff',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    textAlign: 'center',
+  },
+  tipoPersonaBtnActive: {
+    borderColor: '#D85A2D',
+    background: 'rgba(216, 90, 45, 0.05)',
+  },
+  tipoPersonaIcon: {
+    fontSize: '28px',
+    marginBottom: '8px',
+  },
+  tipoPersonaLabel: {
+    fontWeight: '600',
+    color: '#232C54',
+    fontSize: '14px',
+  },
+  accionistaCard: {
+    background: '#f8f9fc',
+    borderRadius: '16px',
+    padding: '24px',
+    marginBottom: '20px',
+    border: '2px solid transparent',
+  },
+  accionistaCardGerente: {
+    background: '#f8f9fc',
+    borderRadius: '16px',
+    padding: '24px',
+    marginBottom: '20px',
+    border: '2px solid #D85A2D',
+  },
+  accionistaHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+  },
+  accionistaTitle: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#232C54',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  accionistaBadge: {
+    fontSize: '12px',
+    padding: '4px 10px',
+    borderRadius: '20px',
+    fontWeight: '500',
+  },
+  removeBtn: {
+    background: '#fee2e2',
+    border: 'none',
+    color: '#dc2626',
+    padding: '8px 16px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+  },
+  addBtn: {
+    width: '100%',
+    padding: '16px',
+    border: '2px dashed #D85A2D',
+    borderRadius: '12px',
+    background: 'rgba(216, 90, 45, 0.05)',
+    color: '#D85A2D',
+    fontSize: '16px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    transition: 'all 0.2s',
+  },
+  capitalInfo: {
+    background: 'linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%)',
+    borderRadius: '12px',
+    padding: '20px',
+    marginBottom: '24px',
+    border: '1px solid #d0daf8',
+  },
+  capitalInfoTitle: {
+    fontWeight: '600',
+    color: '#232C54',
+    marginBottom: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  capitalPresetGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+    gap: '12px',
+    marginBottom: '24px',
+  },
+  capitalPresetBtn: {
+    padding: '16px 12px',
+    border: '2px solid #e8ecf4',
+    borderRadius: '12px',
+    background: '#fff',
+    cursor: 'pointer',
+    textAlign: 'center',
+    transition: 'all 0.2s',
+  },
+  capitalPresetActive: {
+    borderColor: '#D85A2D',
+    background: 'rgba(216, 90, 45, 0.05)',
+  },
+  buttonRow: {
+    display: 'flex',
+    gap: '16px',
+    marginTop: '32px',
+    flexWrap: 'wrap',
+  },
+  btnPrimary: {
+    flex: 1,
+    minWidth: '150px',
+    background: 'linear-gradient(135deg, #D85A2D 0%, #e86a3d 100%)',
+    color: '#fff',
+    border: 'none',
+    padding: '16px 32px',
+    fontSize: '16px',
+    fontWeight: '600',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+  },
+  btnSecondary: {
+    flex: 1,
+    minWidth: '150px',
+    background: '#f1f5f9',
+    color: '#475569',
+    border: 'none',
+    padding: '16px 32px',
+    fontSize: '16px',
+    fontWeight: '600',
+    borderRadius: '12px',
+    cursor: 'pointer',
+  },
+  successCard: {
+    textAlign: 'center',
+    padding: '48px 24px',
+  },
+  successIcon: {
+    width: '100px',
+    height: '100px',
+    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 28px',
+    fontSize: '48px',
+    boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)',
+  },
+  trackingCodeDisplay: {
+    background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
+    color: '#fff',
+    padding: '28px',
+    borderRadius: '16px',
+    marginBottom: '32px',
+  },
+  trackingCodeValue: {
+    fontSize: '36px',
+    fontWeight: '800',
+    color: '#D85A2D',
+    letterSpacing: '4px',
+  },
+  uploadArea: {
+    border: '2px dashed #d0d5dd',
+    borderRadius: '12px',
+    padding: '24px',
+    textAlign: 'center',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    background: '#fafafa',
+  },
+  uploadSuccess: {
+    background: '#f0fdf4',
+    borderColor: '#22c55e',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+  },
+  checkbox: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+    cursor: 'pointer',
+  },
+  checkboxInput: {
+    width: '22px',
+    height: '22px',
+    marginTop: '2px',
+    accentColor: '#D85A2D',
+  },
+  link: {
+    color: '#D85A2D',
+    textDecoration: 'underline',
+  },
+  trackingForm: {
+    display: 'flex',
+    gap: '12px',
+    marginBottom: '24px',
+    flexWrap: 'wrap',
+  },
+  trackingInput: {
+    flex: 1,
+    minWidth: '200px',
+    padding: '14px 16px',
+    border: '2px solid #e8ecf4',
+    borderRadius: '10px',
+    fontSize: '16px',
+    textTransform: 'uppercase',
+  },
+  statusBadge: {
+    display: 'inline-block',
+    padding: '8px 20px',
+    borderRadius: '50px',
+    fontWeight: '600',
+    fontSize: '14px',
+  },
+  infoBox: {
+    background: '#f0fdf4',
+    border: '1px solid #bbf7d0',
+    borderRadius: '12px',
+    padding: '20px',
+    marginTop: '20px',
+  },
+  documentCard: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    padding: '16px',
+    marginTop: '12px',
+  },
+  documentInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  documentIcon: {
+    fontSize: '24px',
+  },
+  documentName: {
+    fontWeight: '500',
+    color: '#232C54',
+  },
+  downloadBtn: {
+    background: '#D85A2D',
+    color: '#fff',
+    border: 'none',
+    padding: '8px 16px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    textDecoration: 'none',
+    display: 'inline-block',
+  },
+};
+
+// ============================================================================
+// COMPONENTE PRINCIPAL
+// ============================================================================
 export default function ConstitucionSAS() {
   const [currentView, setCurrentView] = useState('landing');
   const [currentStep, setCurrentStep] = useState(1);
@@ -30,20 +627,16 @@ export default function ConstitucionSAS() {
     capitalPagado: '1000000',
     accionistas: [{
       id: 1,
-      // V4: Nuevo campo tipo persona
       tipoPersona: 'natural',
-      // Campos persona natural
       nombres: '',
       tipoDocumento: 'CC',
       numeroDocumento: '',
       lugarExpedicion: '',
       nacionalidad: 'Colombiana',
-      // Campos persona jurídica
       razonSocial: '',
       nit: '',
       repLegalNombres: '',
       repLegalCedula: '',
-      // Campos comunes
       ciudadDomicilio: '',
       direccionResidencia: '',
       email: '',
@@ -70,15 +663,16 @@ export default function ConstitucionSAS() {
 
   const totalPorcentaje = formData.accionistas.reduce((sum, a) => sum + (parseFloat(a.porcentaje) || 0), 0);
 
-  const handleInputChange = (e) => {
+  // Usando useCallback para evitar re-renders innecesarios
+  const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-  };
+  }, []);
 
-  const handleAccionistaChange = (index, field, value) => {
+  const handleAccionistaChange = useCallback((index, field, value) => {
     setFormData(prev => {
       const newAccionistas = [...prev.accionistas];
       newAccionistas[index] = { ...newAccionistas[index], [field]: value };
@@ -89,9 +683,9 @@ export default function ConstitucionSAS() {
       }
       return { ...prev, accionistas: newAccionistas };
     });
-  };
+  }, []);
 
-  const handleFileUpload = async (index, file) => {
+  const handleFileUpload = useCallback(async (index, file) => {
     if (!file) return;
     
     if (file.size > 10 * 1024 * 1024) {
@@ -110,9 +704,16 @@ export default function ConstitucionSAS() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const base64 = e.target.result.split(',')[1];
-      handleAccionistaChange(index, 'documentoFile', file);
-      handleAccionistaChange(index, 'documentoFileName', file.name);
-      handleAccionistaChange(index, 'documentoBase64', base64);
+      setFormData(prev => {
+        const newAccionistas = [...prev.accionistas];
+        newAccionistas[index] = {
+          ...newAccionistas[index],
+          documentoFile: file,
+          documentoFileName: file.name,
+          documentoBase64: base64
+        };
+        return { ...prev, accionistas: newAccionistas };
+      });
       setUploadProgress(prev => ({ ...prev, [index]: 'done' }));
     };
     reader.onerror = () => {
@@ -120,65 +721,70 @@ export default function ConstitucionSAS() {
       setUploadProgress(prev => ({ ...prev, [index]: 'error' }));
     };
     reader.readAsDataURL(file);
-  };
+  }, []);
 
-  const addAccionista = () => {
-    const restante = Math.max(0, 100 - totalPorcentaje);
-    setFormData(prev => ({
-      ...prev,
-      accionistas: [...prev.accionistas, {
-        id: Date.now(),
-        tipoPersona: 'natural',
-        nombres: '',
-        tipoDocumento: 'CC',
-        numeroDocumento: '',
-        lugarExpedicion: '',
-        nacionalidad: 'Colombiana',
-        razonSocial: '',
-        nit: '',
-        repLegalNombres: '',
-        repLegalCedula: '',
-        ciudadDomicilio: '',
-        direccionResidencia: '',
-        email: '',
-        telefono: '',
-        porcentaje: restante,
-        esGerente: false,
-        documentoFile: null,
-        documentoFileName: '',
-        documentoBase64: '',
-      }]
-    }));
-  };
+  const addAccionista = useCallback(() => {
+    setFormData(prev => {
+      const currentTotal = prev.accionistas.reduce((sum, a) => sum + (parseFloat(a.porcentaje) || 0), 0);
+      const restante = Math.max(0, 100 - currentTotal);
+      return {
+        ...prev,
+        accionistas: [...prev.accionistas, {
+          id: Date.now(),
+          tipoPersona: 'natural',
+          nombres: '',
+          tipoDocumento: 'CC',
+          numeroDocumento: '',
+          lugarExpedicion: '',
+          nacionalidad: 'Colombiana',
+          razonSocial: '',
+          nit: '',
+          repLegalNombres: '',
+          repLegalCedula: '',
+          ciudadDomicilio: '',
+          direccionResidencia: '',
+          email: '',
+          telefono: '',
+          porcentaje: restante,
+          esGerente: false,
+          documentoFile: null,
+          documentoFileName: '',
+          documentoBase64: '',
+        }]
+      };
+    });
+  }, []);
 
-  const removeAccionista = (index) => {
-    if (formData.accionistas.length > 1) {
-      setFormData(prev => {
-        const newAccionistas = prev.accionistas.filter((_, i) => i !== index);
-        if (!newAccionistas.some(a => a.esGerente)) {
-          newAccionistas[0].esGerente = true;
-        }
-        return { ...prev, accionistas: newAccionistas };
-      });
-    }
-  };
+  const removeAccionista = useCallback((index) => {
+    setFormData(prev => {
+      if (prev.accionistas.length <= 1) return prev;
+      const newAccionistas = prev.accionistas.filter((_, i) => i !== index);
+      if (!newAccionistas.some(a => a.esGerente)) {
+        newAccionistas[0].esGerente = true;
+      }
+      return { ...prev, accionistas: newAccionistas };
+    });
+  }, []);
 
-  const handleCapitalPreset = (preset) => {
+  const handleCapitalPreset = useCallback((preset) => {
     const presets = {
       startup: { autorizado: '100000000', suscrito: '1000000', pagado: '1000000' },
       pyme: { autorizado: '500000000', suscrito: '50000000', pagado: '50000000' },
       grande: { autorizado: '1000000000', suscrito: '100000000', pagado: '100000000' },
-      personalizado: { autorizado: formData.capitalAutorizado, suscrito: formData.capitalSuscrito, pagado: formData.capitalPagado }
     };
     
-    setFormData(prev => ({
-      ...prev,
-      capitalPreset: preset,
-      capitalAutorizado: presets[preset].autorizado,
-      capitalSuscrito: presets[preset].suscrito,
-      capitalPagado: presets[preset].pagado,
-    }));
-  };
+    if (preset === 'personalizado') {
+      setFormData(prev => ({ ...prev, capitalPreset: preset }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        capitalPreset: preset,
+        capitalAutorizado: presets[preset].autorizado,
+        capitalSuscrito: presets[preset].suscrito,
+        capitalPagado: presets[preset].pagado,
+      }));
+    }
+  }, []);
 
   const validateStep = (step) => {
     switch(step) {
@@ -210,7 +816,6 @@ export default function ConstitucionSAS() {
               return false;
             }
           } else {
-            // Persona jurídica
             if (!acc.razonSocial.trim()) {
               alert(`Ingresa la razón social del accionista ${i + 1}`);
               return false;
@@ -294,18 +899,15 @@ export default function ConstitucionSAS() {
         },
         accionistas: formData.accionistas.map(acc => ({
           tipoPersona: acc.tipoPersona,
-          // Campos persona natural
           nombres: acc.nombres.toUpperCase(),
           tipoDocumento: acc.tipoDocumento,
           numeroDocumento: acc.numeroDocumento,
           lugarExpedicion: acc.lugarExpedicion,
           nacionalidad: acc.nacionalidad,
-          // Campos persona jurídica
           razonSocial: acc.razonSocial?.toUpperCase() || '',
           nit: acc.nit || '',
           repLegalNombres: acc.repLegalNombres?.toUpperCase() || '',
           repLegalCedula: acc.repLegalCedula || '',
-          // Campos comunes
           ciudadDomicilio: acc.ciudadDomicilio,
           direccionResidencia: acc.direccionResidencia,
           email: acc.email,
@@ -319,7 +921,7 @@ export default function ConstitucionSAS() {
         tieneExtranjeros: tieneExtranjeros,
       };
       
-      const response = await fetch(GOOGLE_SCRIPT_URL, {
+      await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
@@ -371,604 +973,58 @@ export default function ConstitucionSAS() {
     return '$' + parseInt(num || 0).toLocaleString('es-CO');
   };
 
-  // ============================================================================
-  // ESTILOS MEJORADOS V4
-  // ============================================================================
-  const styles = {
-    container: {
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f8f9fc 0%, #e8ecf4 100%)',
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-    },
-    header: {
-      background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
-      padding: '20px 24px',
-      color: '#fff',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      boxShadow: '0 4px 20px rgba(35, 44, 84, 0.3)',
-    },
-    logo: {
-      fontSize: 'clamp(20px, 4vw, 26px)',
-      fontWeight: '700',
-      letterSpacing: '-0.5px',
-    },
-    backBtn: {
-      background: 'rgba(255,255,255,0.15)',
-      border: 'none',
-      color: '#fff',
-      padding: '10px 20px',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: '500',
-      transition: 'all 0.2s',
-      backdropFilter: 'blur(10px)',
-    },
-    // ============================================================================
-    // HERO MEJORADO
-    // ============================================================================
-    heroSection: {
-      background: 'linear-gradient(135deg, #232C54 0%, #1a2140 50%, #0f1629 100%)',
-      padding: 'clamp(60px, 10vw, 100px) 24px',
-      textAlign: 'center',
-      color: '#fff',
-      position: 'relative',
-      overflow: 'hidden',
-    },
-    heroPattern: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-      opacity: 0.5,
-    },
-    heroContent: {
-      position: 'relative',
-      zIndex: 1,
-      maxWidth: '800px',
-      margin: '0 auto',
-    },
-    heroBadge: {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '8px',
-      background: 'rgba(216, 90, 45, 0.2)',
-      border: '1px solid rgba(216, 90, 45, 0.4)',
-      padding: '8px 16px',
-      borderRadius: '50px',
-      fontSize: '14px',
-      fontWeight: '500',
-      marginBottom: '24px',
-      color: '#FFB088',
-    },
-    heroTitle: {
-      fontSize: 'clamp(32px, 6vw, 52px)',
-      fontWeight: '800',
-      lineHeight: '1.15',
-      marginBottom: '20px',
-      letterSpacing: '-1px',
-    },
-    heroHighlight: {
-      background: 'linear-gradient(90deg, #D85A2D, #FF8C5A)',
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
-      backgroundClip: 'text',
-    },
-    heroSubtitle: {
-      fontSize: 'clamp(16px, 2.5vw, 20px)',
-      opacity: 0.85,
-      maxWidth: '600px',
-      margin: '0 auto 40px',
-      lineHeight: '1.6',
-    },
-    heroCTA: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '16px',
-      alignItems: 'center',
-    },
-    primaryBtn: {
-      background: 'linear-gradient(135deg, #D85A2D 0%, #e86a3d 100%)',
-      color: '#fff',
-      border: 'none',
-      padding: '18px 48px',
-      fontSize: '18px',
-      fontWeight: '600',
-      borderRadius: '12px',
-      cursor: 'pointer',
-      transition: 'all 0.3s',
-      boxShadow: '0 4px 20px rgba(216, 90, 45, 0.4)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-    },
-    secondaryBtn: {
-      background: 'transparent',
-      color: '#fff',
-      border: '2px solid rgba(255,255,255,0.3)',
-      padding: '16px 40px',
-      fontSize: '16px',
-      fontWeight: '500',
-      borderRadius: '12px',
-      cursor: 'pointer',
-      transition: 'all 0.3s',
-    },
-    // ============================================================================
-    // SECCIÓN DE FEATURES
-    // ============================================================================
-    featuresSection: {
-      padding: '80px 24px',
-      maxWidth: '1200px',
-      margin: '0 auto',
-    },
-    sectionTitle: {
-      textAlign: 'center',
-      fontSize: 'clamp(24px, 4vw, 36px)',
-      fontWeight: '700',
-      color: '#232C54',
-      marginBottom: '16px',
-    },
-    sectionSubtitle: {
-      textAlign: 'center',
-      color: '#666',
-      fontSize: '18px',
-      marginBottom: '48px',
-    },
-    featuresGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-      gap: '24px',
-    },
-    featureCard: {
-      background: '#fff',
-      borderRadius: '16px',
-      padding: '32px',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-      transition: 'transform 0.3s, box-shadow 0.3s',
-      border: '1px solid rgba(0,0,0,0.05)',
-    },
-    featureIcon: {
-      width: '56px',
-      height: '56px',
-      borderRadius: '14px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: '20px',
-      fontSize: '26px',
-    },
-    featureTitle: {
-      fontSize: '20px',
-      fontWeight: '600',
-      color: '#232C54',
-      marginBottom: '12px',
-    },
-    featureDesc: {
-      color: '#666',
-      lineHeight: '1.6',
-      fontSize: '15px',
-    },
-    // ============================================================================
-    // PRECIO
-    // ============================================================================
-    priceSection: {
-      background: '#fff',
-      padding: '60px 24px',
-      textAlign: 'center',
-    },
-    priceCard: {
-      maxWidth: '480px',
-      margin: '0 auto',
-      background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
-      borderRadius: '24px',
-      padding: '48px 40px',
-      color: '#fff',
-      boxShadow: '0 20px 60px rgba(35, 44, 84, 0.3)',
-    },
-    priceAmount: {
-      fontSize: '48px',
-      fontWeight: '800',
-      marginBottom: '8px',
-    },
-    priceIva: {
-      fontSize: '16px',
-      opacity: 0.7,
-      marginBottom: '32px',
-    },
-    priceIncludes: {
-      textAlign: 'left',
-      marginBottom: '32px',
-    },
-    priceItem: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      padding: '12px 0',
-      borderBottom: '1px solid rgba(255,255,255,0.1)',
-      fontSize: '15px',
-    },
-    // ============================================================================
-    // FORM STYLES
-    // ============================================================================
-    formContainer: {
-      maxWidth: '800px',
-      margin: '0 auto',
-      padding: '40px 24px',
-    },
-    progressBar: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      marginBottom: '40px',
-      position: 'relative',
-    },
-    progressLine: {
-      position: 'absolute',
-      top: '20px',
-      left: '10%',
-      right: '10%',
-      height: '3px',
-      background: '#e0e0e0',
-      zIndex: 0,
-    },
-    progressLineFill: {
-      height: '100%',
-      background: 'linear-gradient(90deg, #D85A2D, #e86a3d)',
-      transition: 'width 0.4s ease',
-    },
-    stepIndicator: {
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      zIndex: 1,
-      flex: 1,
-    },
-    stepCircle: {
-      width: '44px',
-      height: '44px',
-      borderRadius: '50%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontWeight: '600',
-      fontSize: '16px',
-      transition: 'all 0.3s',
-      marginBottom: '10px',
-    },
-    stepLabel: {
-      fontSize: '13px',
-      fontWeight: '500',
-      textAlign: 'center',
-    },
-    formCard: {
-      background: '#fff',
-      borderRadius: '20px',
-      padding: 'clamp(24px, 5vw, 40px)',
-      boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
-    },
-    formTitle: {
-      fontSize: 'clamp(22px, 4vw, 28px)',
-      fontWeight: '700',
-      color: '#232C54',
-      marginBottom: '8px',
-    },
-    formSubtitle: {
-      color: '#666',
-      marginBottom: '32px',
-      fontSize: '15px',
-    },
-    inputGroup: {
-      marginBottom: '24px',
-    },
-    label: {
-      display: 'block',
-      marginBottom: '8px',
-      fontWeight: '500',
-      color: '#333',
-      fontSize: '14px',
-    },
-    labelRequired: {
-      color: '#D85A2D',
-      marginLeft: '4px',
-    },
-    input: {
-      width: '100%',
-      padding: '14px 16px',
-      border: '2px solid #e8ecf4',
-      borderRadius: '10px',
-      fontSize: '16px',
-      transition: 'border-color 0.2s, box-shadow 0.2s',
-      outline: 'none',
-      boxSizing: 'border-box',
-    },
-    textarea: {
-      width: '100%',
-      padding: '14px 16px',
-      border: '2px solid #e8ecf4',
-      borderRadius: '10px',
-      fontSize: '16px',
-      minHeight: '100px',
-      resize: 'vertical',
-      outline: 'none',
-      boxSizing: 'border-box',
-    },
-    select: {
-      width: '100%',
-      padding: '14px 16px',
-      border: '2px solid #e8ecf4',
-      borderRadius: '10px',
-      fontSize: '16px',
-      outline: 'none',
-      boxSizing: 'border-box',
-      background: '#fff',
-    },
-    inputRow: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '16px',
-    },
-    // ============================================================================
-    // TIPO PERSONA SELECTOR (V4)
-    // ============================================================================
-    tipoPersonaSelector: {
-      display: 'flex',
-      gap: '12px',
-      marginBottom: '24px',
-    },
-    tipoPersonaBtn: {
-      flex: 1,
-      padding: '16px',
-      border: '2px solid #e8ecf4',
-      borderRadius: '12px',
-      background: '#fff',
-      cursor: 'pointer',
-      transition: 'all 0.2s',
-      textAlign: 'center',
-    },
-    tipoPersonaBtnActive: {
-      borderColor: '#D85A2D',
-      background: 'rgba(216, 90, 45, 0.05)',
-    },
-    tipoPersonaIcon: {
-      fontSize: '28px',
-      marginBottom: '8px',
-    },
-    tipoPersonaLabel: {
-      fontWeight: '600',
-      color: '#232C54',
-      fontSize: '14px',
-    },
-    // ============================================================================
-    // ACCIONISTA CARD
-    // ============================================================================
-    accionistaCard: {
-      background: '#f8f9fc',
-      borderRadius: '16px',
-      padding: '24px',
-      marginBottom: '20px',
-      border: '2px solid transparent',
-    },
-    accionistaHeader: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '20px',
-    },
-    accionistaTitle: {
-      fontSize: '18px',
-      fontWeight: '600',
-      color: '#232C54',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-    },
-    accionistaBadge: {
-      fontSize: '12px',
-      padding: '4px 10px',
-      borderRadius: '20px',
-      fontWeight: '500',
-    },
-    removeBtn: {
-      background: '#fee2e2',
-      border: 'none',
-      color: '#dc2626',
-      padding: '8px 16px',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: '500',
-    },
-    addBtn: {
-      width: '100%',
-      padding: '16px',
-      border: '2px dashed #D85A2D',
-      borderRadius: '12px',
-      background: 'rgba(216, 90, 45, 0.05)',
-      color: '#D85A2D',
-      fontSize: '16px',
-      fontWeight: '600',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '8px',
-      transition: 'all 0.2s',
-    },
-    // Capital
-    capitalInfo: {
-      background: 'linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%)',
-      borderRadius: '12px',
-      padding: '20px',
-      marginBottom: '24px',
-      border: '1px solid #d0daf8',
-    },
-    capitalInfoTitle: {
-      fontWeight: '600',
-      color: '#232C54',
-      marginBottom: '12px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-    },
-    capitalPresetGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-      gap: '12px',
-      marginBottom: '24px',
-    },
-    capitalPresetBtn: {
-      padding: '16px 12px',
-      border: '2px solid #e8ecf4',
-      borderRadius: '12px',
-      background: '#fff',
-      cursor: 'pointer',
-      textAlign: 'center',
-      transition: 'all 0.2s',
-    },
-    capitalPresetActive: {
-      borderColor: '#D85A2D',
-      background: 'rgba(216, 90, 45, 0.05)',
-    },
-    // Buttons
-    buttonRow: {
-      display: 'flex',
-      gap: '16px',
-      marginTop: '32px',
-      flexWrap: 'wrap',
-    },
-    btnPrimary: {
-      flex: 1,
-      minWidth: '150px',
-      background: 'linear-gradient(135deg, #D85A2D 0%, #e86a3d 100%)',
-      color: '#fff',
-      border: 'none',
-      padding: '16px 32px',
-      fontSize: '16px',
-      fontWeight: '600',
-      borderRadius: '12px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '8px',
-    },
-    btnSecondary: {
-      flex: 1,
-      minWidth: '150px',
-      background: '#f1f5f9',
-      color: '#475569',
-      border: 'none',
-      padding: '16px 32px',
-      fontSize: '16px',
-      fontWeight: '600',
-      borderRadius: '12px',
-      cursor: 'pointer',
-    },
-    // Success
-    successCard: {
-      textAlign: 'center',
-      padding: '48px 24px',
-    },
-    successIcon: {
-      width: '100px',
-      height: '100px',
-      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-      borderRadius: '50%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      margin: '0 auto 28px',
-      fontSize: '48px',
-      boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)',
-    },
-    trackingCodeDisplay: {
-      background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
-      color: '#fff',
-      padding: '28px',
-      borderRadius: '16px',
-      marginBottom: '32px',
-    },
-    trackingCodeValue: {
-      fontSize: '36px',
-      fontWeight: '800',
-      color: '#D85A2D',
-      letterSpacing: '4px',
-    },
-    // Upload
-    uploadArea: {
-      border: '2px dashed #d0d5dd',
-      borderRadius: '12px',
-      padding: '24px',
-      textAlign: 'center',
-      cursor: 'pointer',
-      transition: 'all 0.2s',
-      background: '#fafafa',
-    },
-    uploadSuccess: {
-      background: '#f0fdf4',
-      borderColor: '#22c55e',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '12px',
-    },
-    checkbox: {
-      display: 'flex',
-      alignItems: 'flex-start',
-      gap: '12px',
-      cursor: 'pointer',
-    },
-    checkboxInput: {
-      width: '22px',
-      height: '22px',
-      marginTop: '2px',
-      accentColor: '#D85A2D',
-    },
-    link: {
-      color: '#D85A2D',
-      textDecoration: 'underline',
-    },
-    // Tracking
-    trackingForm: {
-      display: 'flex',
-      gap: '12px',
-      marginBottom: '24px',
-      flexWrap: 'wrap',
-    },
-    trackingInput: {
-      flex: 1,
-      minWidth: '200px',
-      padding: '14px 16px',
-      border: '2px solid #e8ecf4',
-      borderRadius: '10px',
-      fontSize: '16px',
-      textTransform: 'uppercase',
-    },
-    statusBadge: {
-      display: 'inline-block',
-      padding: '8px 20px',
-      borderRadius: '50px',
-      fontWeight: '600',
-      fontSize: '14px',
-    },
-    infoBox: {
-      background: '#f0fdf4',
-      border: '1px solid #bbf7d0',
-      borderRadius: '12px',
-      padding: '20px',
-      marginTop: '20px',
-    },
+  const resetForm = () => {
+    setCurrentView('landing');
+    setCurrentStep(1);
+    setFormData({
+      nombreEmpresa: '',
+      objetoSocial: '',
+      ciudadSociedad: 'Bogotá D.C.',
+      direccionSociedad: '',
+      telefonoSociedad: '',
+      emailSociedad: '',
+      capitalPreset: 'startup',
+      capitalAutorizado: '100000000',
+      capitalSuscrito: '1000000',
+      capitalPagado: '1000000',
+      accionistas: [{
+        id: 1,
+        tipoPersona: 'natural',
+        nombres: '',
+        tipoDocumento: 'CC',
+        numeroDocumento: '',
+        lugarExpedicion: '',
+        nacionalidad: 'Colombiana',
+        razonSocial: '',
+        nit: '',
+        repLegalNombres: '',
+        repLegalCedula: '',
+        ciudadDomicilio: '',
+        direccionResidencia: '',
+        email: '',
+        telefono: '',
+        porcentaje: 100,
+        esGerente: true,
+        documentoFile: null,
+        documentoFileName: '',
+        documentoBase64: '',
+      }],
+      gerenteSuplente: {
+        tiene: false,
+        nombres: '',
+        tipoDocumento: 'CC',
+        numeroDocumento: '',
+        lugarExpedicion: '',
+      },
+      aceptaPolitica: false,
+    });
   };
 
   // ============================================================================
-  // LANDING PAGE - MEJORADO V4
+  // LANDING PAGE
   // ============================================================================
   const LandingPage = () => (
     <>
-      {/* Hero Section */}
       <section style={styles.heroSection}>
         <div style={styles.heroPattern}></div>
         <div style={styles.heroContent}>
@@ -987,22 +1043,12 @@ export default function ConstitucionSAS() {
             <button 
               style={styles.primaryBtn}
               onClick={() => setCurrentView('form')}
-              onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-              onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
             >
               Comenzar ahora →
             </button>
             <button 
               style={styles.secondaryBtn}
               onClick={() => setCurrentView('tracking')}
-              onMouseOver={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.1)';
-                e.target.style.borderColor = 'rgba(255,255,255,0.5)';
-              }}
-              onMouseOut={(e) => {
-                e.target.style.background = 'transparent';
-                e.target.style.borderColor = 'rgba(255,255,255,0.3)';
-              }}
             >
               Consultar mi solicitud
             </button>
@@ -1010,7 +1056,6 @@ export default function ConstitucionSAS() {
         </div>
       </section>
 
-      {/* Features */}
       <section style={styles.featuresSection}>
         <h2 style={styles.sectionTitle}>¿Por qué elegirnos?</h2>
         <p style={styles.sectionSubtitle}>Todo lo que necesitas para crear tu empresa</p>
@@ -1058,7 +1103,6 @@ export default function ConstitucionSAS() {
         </div>
       </section>
 
-      {/* Precio */}
       <section style={styles.priceSection}>
         <h2 style={styles.sectionTitle}>Precio transparente</h2>
         <p style={styles.sectionSubtitle}>Sin costos ocultos ni sorpresas</p>
@@ -1088,7 +1132,7 @@ export default function ConstitucionSAS() {
   );
 
   // ============================================================================
-  // RENDER ACCIONISTA - V4 CON TIPO PERSONA
+  // RENDER ACCIONISTA
   // ============================================================================
   const renderAccionista = (acc, index) => {
     const isNatural = acc.tipoPersona === 'natural';
@@ -1096,10 +1140,7 @@ export default function ConstitucionSAS() {
     return (
       <div 
         key={acc.id} 
-        style={{
-          ...styles.accionistaCard,
-          borderColor: acc.esGerente ? '#D85A2D' : 'transparent',
-        }}
+        style={acc.esGerente ? styles.accionistaCardGerente : styles.accionistaCard}
       >
         <div style={styles.accionistaHeader}>
           <div style={styles.accionistaTitle}>
@@ -1123,6 +1164,7 @@ export default function ConstitucionSAS() {
           </div>
           {formData.accionistas.length > 1 && (
             <button 
+              type="button"
               style={styles.removeBtn}
               onClick={() => removeAccionista(index)}
             >
@@ -1131,7 +1173,6 @@ export default function ConstitucionSAS() {
           )}
         </div>
 
-        {/* Selector tipo persona */}
         <div style={styles.tipoPersonaSelector}>
           <button
             type="button"
@@ -1157,9 +1198,7 @@ export default function ConstitucionSAS() {
           </button>
         </div>
 
-        {/* Campos según tipo de persona */}
         {isNatural ? (
-          // ==================== PERSONA NATURAL ====================
           <>
             <div style={styles.inputRow}>
               <div style={styles.inputGroup}>
@@ -1224,7 +1263,6 @@ export default function ConstitucionSAS() {
             </div>
           </>
         ) : (
-          // ==================== PERSONA JURÍDICA ====================
           <>
             <div style={styles.inputRow}>
               <div style={styles.inputGroup}>
@@ -1292,7 +1330,6 @@ export default function ConstitucionSAS() {
           </>
         )}
 
-        {/* Campos comunes */}
         <div style={styles.inputRow}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Ciudad de domicilio<span style={styles.labelRequired}>*</span></label>
@@ -1350,7 +1387,6 @@ export default function ConstitucionSAS() {
           </div>
         </div>
 
-        {/* Checkbox gerente */}
         <label style={{...styles.checkbox, marginTop: '16px', marginBottom: '16px'}}>
           <input
             type="checkbox"
@@ -1370,7 +1406,6 @@ export default function ConstitucionSAS() {
           </div>
         </label>
 
-        {/* Upload documento */}
         <div style={styles.inputGroup}>
           <label style={styles.label}>
             {isNatural ? 'Copia del documento de identidad' : 'RUT o Certificado de Existencia'}
@@ -1419,18 +1454,28 @@ export default function ConstitucionSAS() {
   // ============================================================================
   const FormWizard = () => (
     <div style={styles.formContainer}>
-      {/* Progress Bar */}
       <div style={styles.progressBar}>
         <div style={styles.progressLine}>
           <div style={{
-            ...styles.progressLineFill,
+            height: '100%',
+            background: 'linear-gradient(90deg, #D85A2D, #e86a3d)',
+            transition: 'width 0.4s ease',
             width: `${((currentStep - 1) / 3) * 100}%`,
           }}></div>
         </div>
         {['Empresa', 'Accionistas', 'Confirmar', 'Listo'].map((label, i) => (
           <div key={i} style={styles.stepIndicator}>
             <div style={{
-              ...styles.stepCircle,
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: '600',
+              fontSize: '16px',
+              transition: 'all 0.3s',
+              marginBottom: '10px',
               background: currentStep > i + 1 ? '#22c55e' : currentStep === i + 1 ? '#D85A2D' : '#e5e7eb',
               color: currentStep >= i + 1 ? '#fff' : '#9ca3af',
             }}>
@@ -1537,7 +1582,6 @@ export default function ConstitucionSAS() {
               </div>
             </div>
 
-            {/* Capital Social */}
             <div style={styles.capitalInfo}>
               <div style={styles.capitalInfoTitle}>
                 💡 ¿Qué es el capital social?
@@ -1640,7 +1684,6 @@ export default function ConstitucionSAS() {
 
             {formData.accionistas.map((acc, index) => renderAccionista(acc, index))}
 
-            {/* Resumen porcentajes */}
             <div style={{
               background: totalPorcentaje === 100 ? '#f0fdf4' : '#fef3c7',
               border: `1px solid ${totalPorcentaje === 100 ? '#86efac' : '#fcd34d'}`,
@@ -1694,7 +1737,6 @@ export default function ConstitucionSAS() {
             <h2 style={styles.formTitle}>Confirma tu solicitud</h2>
             <p style={styles.formSubtitle}>Revisa la información antes de enviar</p>
 
-            {/* Resumen empresa */}
             <div style={{background: '#f8f9fc', borderRadius: '12px', padding: '20px', marginBottom: '20px'}}>
               <h3 style={{margin: '0 0 16px', color: '#232C54'}}>🏢 Datos de la empresa</h3>
               <div style={{display: 'grid', gap: '8px'}}>
@@ -1705,7 +1747,6 @@ export default function ConstitucionSAS() {
               </div>
             </div>
 
-            {/* Resumen accionistas */}
             <div style={{background: '#f8f9fc', borderRadius: '12px', padding: '20px', marginBottom: '20px'}}>
               <h3 style={{margin: '0 0 16px', color: '#232C54'}}>👥 Accionistas ({formData.accionistas.length})</h3>
               {formData.accionistas.map((acc, i) => {
@@ -1743,7 +1784,6 @@ export default function ConstitucionSAS() {
               })}
             </div>
 
-            {/* Alertas */}
             {tieneExtranjeros && (
               <div style={{
                 background: '#fef3c7',
@@ -1756,7 +1796,6 @@ export default function ConstitucionSAS() {
               </div>
             )}
 
-            {/* Política de datos */}
             <label style={styles.checkbox}>
               <input
                 type="checkbox"
@@ -1824,52 +1863,7 @@ export default function ConstitucionSAS() {
             
             <button 
               style={styles.btnPrimary}
-              onClick={() => {
-                setCurrentView('landing');
-                setCurrentStep(1);
-                setFormData({
-                  nombreEmpresa: '',
-                  objetoSocial: '',
-                  ciudadSociedad: 'Bogotá D.C.',
-                  direccionSociedad: '',
-                  telefonoSociedad: '',
-                  emailSociedad: '',
-                  capitalPreset: 'startup',
-                  capitalAutorizado: '100000000',
-                  capitalSuscrito: '1000000',
-                  capitalPagado: '1000000',
-                  accionistas: [{
-                    id: 1,
-                    tipoPersona: 'natural',
-                    nombres: '',
-                    tipoDocumento: 'CC',
-                    numeroDocumento: '',
-                    lugarExpedicion: '',
-                    nacionalidad: 'Colombiana',
-                    razonSocial: '',
-                    nit: '',
-                    repLegalNombres: '',
-                    repLegalCedula: '',
-                    ciudadDomicilio: '',
-                    direccionResidencia: '',
-                    email: '',
-                    telefono: '',
-                    porcentaje: 100,
-                    esGerente: true,
-                    documentoFile: null,
-                    documentoFileName: '',
-                    documentoBase64: '',
-                  }],
-                  gerenteSuplente: {
-                    tiene: false,
-                    nombres: '',
-                    tipoDocumento: 'CC',
-                    numeroDocumento: '',
-                    lugarExpedicion: '',
-                  },
-                  aceptaPolitica: false,
-                });
-              }}
+              onClick={resetForm}
             >
               Volver al inicio
             </button>
@@ -1880,7 +1874,7 @@ export default function ConstitucionSAS() {
   );
 
   // ============================================================================
-  // TRACKING PAGE
+  // TRACKING PAGE - V4.1: Con descarga de documentos
   // ============================================================================
   const TrackingPage = () => {
     const getStatusColor = (estado) => {
@@ -1967,27 +1961,84 @@ export default function ConstitucionSAS() {
                 )}
               </div>
               
-              {trackingData.estado === 'Constituida' && trackingData.certificadoUrl && (
+              {/* SECCIÓN DE DOCUMENTOS DESCARGABLES - V4.1 */}
+              {trackingData.estado === 'Constituida' && (
                 <div style={styles.infoBox}>
-                  <div style={{fontWeight: '600', color: '#16a34a', marginBottom: '12px'}}>
+                  <div style={{fontWeight: '600', color: '#16a34a', marginBottom: '16px', fontSize: '18px'}}>
                     🎉 ¡Tu empresa está constituida!
                   </div>
-                  <a 
-                    href={trackingData.certificadoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-block',
-                      background: '#16a34a',
-                      color: '#fff',
-                      padding: '12px 24px',
-                      borderRadius: '8px',
-                      textDecoration: 'none',
-                      fontWeight: '600',
-                    }}
-                  >
-                    📄 Descargar Certificado
-                  </a>
+                  <p style={{color: '#666', marginBottom: '20px', fontSize: '14px'}}>
+                    Descarga los documentos de tu empresa:
+                  </p>
+                  
+                  {/* Certificado de Existencia */}
+                  {trackingData.certificadoUrl && (
+                    <div style={styles.documentCard}>
+                      <div style={styles.documentInfo}>
+                        <span style={styles.documentIcon}>📜</span>
+                        <span style={styles.documentName}>Certificado de Existencia y Rep. Legal</span>
+                      </div>
+                      <a 
+                        href={trackingData.certificadoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={styles.downloadBtn}
+                      >
+                        ⬇ Descargar
+                      </a>
+                    </div>
+                  )}
+                  
+                  {/* RUT */}
+                  {trackingData.rutUrl && (
+                    <div style={styles.documentCard}>
+                      <div style={styles.documentInfo}>
+                        <span style={styles.documentIcon}>📋</span>
+                        <span style={styles.documentName}>RUT</span>
+                      </div>
+                      <a 
+                        href={trackingData.rutUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={styles.downloadBtn}
+                      >
+                        ⬇ Descargar
+                      </a>
+                    </div>
+                  )}
+                  
+                  {/* Estados Financieros */}
+                  {trackingData.estadosFinancierosUrl && (
+                    <div style={styles.documentCard}>
+                      <div style={styles.documentInfo}>
+                        <span style={styles.documentIcon}>📊</span>
+                        <span style={styles.documentName}>Estados Financieros Iniciales</span>
+                      </div>
+                      <a 
+                        href={trackingData.estadosFinancierosUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={styles.downloadBtn}
+                      >
+                        ⬇ Descargar
+                      </a>
+                    </div>
+                  )}
+                  
+                  {/* Mensaje si no hay documentos aún */}
+                  {!trackingData.certificadoUrl && !trackingData.rutUrl && !trackingData.estadosFinancierosUrl && (
+                    <div style={{
+                      background: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '10px',
+                      padding: '20px',
+                      textAlign: 'center',
+                      color: '#666',
+                    }}>
+                      Los documentos estarán disponibles pronto.<br/>
+                      Te notificaremos por email cuando estén listos.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2042,7 +2093,6 @@ export default function ConstitucionSAS() {
       {currentView === 'form' && <FormWizard />}
       {currentView === 'tracking' && <TrackingPage />}
 
-      {/* Footer */}
       <footer style={{
         background: '#232C54',
         color: '#fff',
