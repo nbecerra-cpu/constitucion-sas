@@ -1,604 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 
-// ============================================================================
-// ESTILOS FUERA DEL COMPONENTE (evita re-renders)
-// ============================================================================
-const styles = {
-  container: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #f8f9fc 0%, #e8ecf4 100%)',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  },
-  header: {
-    background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
-    padding: '20px 24px',
-    color: '#fff',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    boxShadow: '0 4px 20px rgba(35, 44, 84, 0.3)',
-  },
-  logo: {
-    fontSize: 'clamp(20px, 4vw, 26px)',
-    fontWeight: '700',
-    letterSpacing: '-0.5px',
-  },
-  backBtn: {
-    background: 'rgba(255,255,255,0.15)',
-    border: 'none',
-    color: '#fff',
-    padding: '10px 20px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-    transition: 'all 0.2s',
-    backdropFilter: 'blur(10px)',
-  },
-  heroSection: {
-    background: 'linear-gradient(135deg, #232C54 0%, #1a2140 50%, #0f1629 100%)',
-    padding: 'clamp(60px, 10vw, 100px) 24px',
-    textAlign: 'center',
-    color: '#fff',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  heroPattern: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-    opacity: 0.5,
-  },
-  heroContent: {
-    position: 'relative',
-    zIndex: 1,
-    maxWidth: '800px',
-    margin: '0 auto',
-  },
-  heroBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    background: 'rgba(216, 90, 45, 0.2)',
-    border: '1px solid rgba(216, 90, 45, 0.4)',
-    padding: '8px 16px',
-    borderRadius: '50px',
-    fontSize: '14px',
-    fontWeight: '500',
-    marginBottom: '24px',
-    color: '#FFB088',
-  },
-  heroTitle: {
-    fontSize: 'clamp(32px, 6vw, 52px)',
-    fontWeight: '800',
-    lineHeight: '1.15',
-    marginBottom: '20px',
-    letterSpacing: '-1px',
-  },
-  heroHighlight: {
-    background: 'linear-gradient(90deg, #D85A2D, #FF8C5A)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text',
-  },
-  heroSubtitle: {
-    fontSize: 'clamp(16px, 2.5vw, 20px)',
-    opacity: 0.85,
-    maxWidth: '600px',
-    margin: '0 auto 40px',
-    lineHeight: '1.6',
-  },
-  heroCTA: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    alignItems: 'center',
-  },
-  primaryBtn: {
-    background: 'linear-gradient(135deg, #D85A2D 0%, #e86a3d 100%)',
-    color: '#fff',
-    border: 'none',
-    padding: '18px 48px',
-    fontSize: '18px',
-    fontWeight: '600',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-    boxShadow: '0 4px 20px rgba(216, 90, 45, 0.4)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  secondaryBtn: {
-    background: 'transparent',
-    color: '#fff',
-    border: '2px solid rgba(255,255,255,0.3)',
-    padding: '16px 40px',
-    fontSize: '16px',
-    fontWeight: '500',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-  },
-  featuresSection: {
-    padding: '80px 24px',
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  sectionTitle: {
-    textAlign: 'center',
-    fontSize: 'clamp(24px, 4vw, 36px)',
-    fontWeight: '700',
-    color: '#232C54',
-    marginBottom: '16px',
-  },
-  sectionSubtitle: {
-    textAlign: 'center',
-    color: '#666',
-    fontSize: '18px',
-    marginBottom: '48px',
-  },
-  featuresGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: '24px',
-  },
-  featureCard: {
-    background: '#fff',
-    borderRadius: '16px',
-    padding: '32px',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-    transition: 'transform 0.3s, box-shadow 0.3s',
-    border: '1px solid rgba(0,0,0,0.05)',
-  },
-  featureIcon: {
-    width: '56px',
-    height: '56px',
-    borderRadius: '14px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: '20px',
-    fontSize: '26px',
-  },
-  featureTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#232C54',
-    marginBottom: '12px',
-  },
-  featureDesc: {
-    color: '#666',
-    lineHeight: '1.6',
-    fontSize: '15px',
-  },
-  priceSection: {
-    background: '#fff',
-    padding: '60px 24px',
-    textAlign: 'center',
-  },
-  priceCard: {
-    maxWidth: '480px',
-    margin: '0 auto',
-    background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
-    borderRadius: '24px',
-    padding: '48px 40px',
-    color: '#fff',
-    boxShadow: '0 20px 60px rgba(35, 44, 84, 0.3)',
-  },
-  priceAmount: {
-    fontSize: '48px',
-    fontWeight: '800',
-    marginBottom: '8px',
-  },
-  priceIva: {
-    fontSize: '16px',
-    opacity: 0.7,
-    marginBottom: '32px',
-  },
-  priceIncludes: {
-    textAlign: 'left',
-    marginBottom: '32px',
-  },
-  priceItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 0',
-    borderBottom: '1px solid rgba(255,255,255,0.1)',
-    fontSize: '15px',
-  },
-  formContainer: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    padding: '40px 24px',
-  },
-  progressBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    marginBottom: '40px',
-    position: 'relative',
-  },
-  progressLine: {
-    position: 'absolute',
-    top: '20px',
-    left: '10%',
-    right: '10%',
-    height: '3px',
-    background: '#e0e0e0',
-    zIndex: 0,
-  },
-  stepIndicator: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    zIndex: 1,
-    flex: 1,
-  },
-  stepLabel: {
-    fontSize: '13px',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  formCard: {
-    background: '#fff',
-    borderRadius: '20px',
-    padding: 'clamp(24px, 5vw, 40px)',
-    boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
-  },
-  formTitle: {
-    fontSize: 'clamp(22px, 4vw, 28px)',
-    fontWeight: '700',
-    color: '#232C54',
-    marginBottom: '8px',
-  },
-  formSubtitle: {
-    color: '#666',
-    marginBottom: '32px',
-    fontSize: '15px',
-  },
-  inputGroup: {
-    marginBottom: '24px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '8px',
-    fontWeight: '500',
-    color: '#333',
-    fontSize: '14px',
-  },
-  labelRequired: {
-    color: '#D85A2D',
-    marginLeft: '4px',
-  },
-  input: {
-    width: '100%',
-    padding: '14px 16px',
-    border: '2px solid #e8ecf4',
-    borderRadius: '10px',
-    fontSize: '16px',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-    outline: 'none',
-    boxSizing: 'border-box',
-  },
-  textarea: {
-    width: '100%',
-    padding: '14px 16px',
-    border: '2px solid #e8ecf4',
-    borderRadius: '10px',
-    fontSize: '16px',
-    minHeight: '100px',
-    resize: 'vertical',
-    outline: 'none',
-    boxSizing: 'border-box',
-    fontFamily: 'inherit',
-  },
-  select: {
-    width: '100%',
-    padding: '14px 16px',
-    border: '2px solid #e8ecf4',
-    borderRadius: '10px',
-    fontSize: '16px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    background: '#fff',
-  },
-  inputRow: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '16px',
-  },
-  tipoPersonaSelector: {
-    display: 'flex',
-    gap: '12px',
-    marginBottom: '24px',
-  },
-  tipoPersonaBtn: {
-    flex: 1,
-    padding: '16px',
-    border: '2px solid #e8ecf4',
-    borderRadius: '12px',
-    background: '#fff',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    textAlign: 'center',
-  },
-  tipoPersonaBtnActive: {
-    borderColor: '#D85A2D',
-    background: 'rgba(216, 90, 45, 0.05)',
-  },
-  tipoPersonaIcon: {
-    fontSize: '28px',
-    marginBottom: '8px',
-  },
-  tipoPersonaLabel: {
-    fontWeight: '600',
-    color: '#232C54',
-    fontSize: '14px',
-  },
-  accionistaCard: {
-    background: '#f8f9fc',
-    borderRadius: '16px',
-    padding: '24px',
-    marginBottom: '20px',
-    border: '2px solid transparent',
-  },
-  accionistaCardGerente: {
-    background: '#f8f9fc',
-    borderRadius: '16px',
-    padding: '24px',
-    marginBottom: '20px',
-    border: '2px solid #D85A2D',
-  },
-  accionistaHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-  },
-  accionistaTitle: {
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#232C54',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  accionistaBadge: {
-    fontSize: '12px',
-    padding: '4px 10px',
-    borderRadius: '20px',
-    fontWeight: '500',
-  },
-  removeBtn: {
-    background: '#fee2e2',
-    border: 'none',
-    color: '#dc2626',
-    padding: '8px 16px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-  },
-  addBtn: {
-    width: '100%',
-    padding: '16px',
-    border: '2px dashed #D85A2D',
-    borderRadius: '12px',
-    background: 'rgba(216, 90, 45, 0.05)',
-    color: '#D85A2D',
-    fontSize: '16px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    transition: 'all 0.2s',
-  },
-  capitalInfo: {
-    background: 'linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%)',
-    borderRadius: '12px',
-    padding: '20px',
-    marginBottom: '24px',
-    border: '1px solid #d0daf8',
-  },
-  capitalInfoTitle: {
-    fontWeight: '600',
-    color: '#232C54',
-    marginBottom: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  capitalPresetGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-    gap: '12px',
-    marginBottom: '24px',
-  },
-  capitalPresetBtn: {
-    padding: '16px 12px',
-    border: '2px solid #e8ecf4',
-    borderRadius: '12px',
-    background: '#fff',
-    cursor: 'pointer',
-    textAlign: 'center',
-    transition: 'all 0.2s',
-  },
-  capitalPresetActive: {
-    borderColor: '#D85A2D',
-    background: 'rgba(216, 90, 45, 0.05)',
-  },
-  buttonRow: {
-    display: 'flex',
-    gap: '16px',
-    marginTop: '32px',
-    flexWrap: 'wrap',
-  },
-  btnPrimary: {
-    flex: 1,
-    minWidth: '150px',
-    background: 'linear-gradient(135deg, #D85A2D 0%, #e86a3d 100%)',
-    color: '#fff',
-    border: 'none',
-    padding: '16px 32px',
-    fontSize: '16px',
-    fontWeight: '600',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-  },
-  btnSecondary: {
-    flex: 1,
-    minWidth: '150px',
-    background: '#f1f5f9',
-    color: '#475569',
-    border: 'none',
-    padding: '16px 32px',
-    fontSize: '16px',
-    fontWeight: '600',
-    borderRadius: '12px',
-    cursor: 'pointer',
-  },
-  successCard: {
-    textAlign: 'center',
-    padding: '48px 24px',
-  },
-  successIcon: {
-    width: '100px',
-    height: '100px',
-    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '0 auto 28px',
-    fontSize: '48px',
-    boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)',
-  },
-  trackingCodeDisplay: {
-    background: 'linear-gradient(135deg, #232C54 0%, #1a2140 100%)',
-    color: '#fff',
-    padding: '28px',
-    borderRadius: '16px',
-    marginBottom: '32px',
-  },
-  trackingCodeValue: {
-    fontSize: '36px',
-    fontWeight: '800',
-    color: '#D85A2D',
-    letterSpacing: '4px',
-  },
-  uploadArea: {
-    border: '2px dashed #d0d5dd',
-    borderRadius: '12px',
-    padding: '24px',
-    textAlign: 'center',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    background: '#fafafa',
-  },
-  uploadSuccess: {
-    background: '#f0fdf4',
-    borderColor: '#22c55e',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '12px',
-  },
-  checkbox: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '12px',
-    cursor: 'pointer',
-  },
-  checkboxInput: {
-    width: '22px',
-    height: '22px',
-    marginTop: '2px',
-    accentColor: '#D85A2D',
-  },
-  link: {
-    color: '#D85A2D',
-    textDecoration: 'underline',
-  },
-  trackingForm: {
-    display: 'flex',
-    gap: '12px',
-    marginBottom: '24px',
-    flexWrap: 'wrap',
-  },
-  trackingInput: {
-    flex: 1,
-    minWidth: '200px',
-    padding: '14px 16px',
-    border: '2px solid #e8ecf4',
-    borderRadius: '10px',
-    fontSize: '16px',
-    textTransform: 'uppercase',
-  },
-  statusBadge: {
-    display: 'inline-block',
-    padding: '8px 20px',
-    borderRadius: '50px',
-    fontWeight: '600',
-    fontSize: '14px',
-  },
-  infoBox: {
-    background: '#f0fdf4',
-    border: '1px solid #bbf7d0',
-    borderRadius: '12px',
-    padding: '20px',
-    marginTop: '20px',
-  },
-  documentCard: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '10px',
-    padding: '16px',
-    marginTop: '12px',
-  },
-  documentInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  documentIcon: {
-    fontSize: '24px',
-  },
-  documentName: {
-    fontWeight: '500',
-    color: '#232C54',
-  },
-  downloadBtn: {
-    background: '#D85A2D',
-    color: '#fff',
-    border: 'none',
-    padding: '8px 16px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-    textDecoration: 'none',
-    display: 'inline-block',
-  },
-};
-
-// ============================================================================
-// COMPONENTE PRINCIPAL
-// ============================================================================
 export default function ConstitucionSAS() {
   const [currentView, setCurrentView] = useState('landing');
   const [currentStep, setCurrentStep] = useState(1);
@@ -606,27 +9,90 @@ export default function ConstitucionSAS() {
   const [trackingCode, setTrackingCode] = useState('');
   const [uploadProgress, setUploadProgress] = useState({});
   
-  // Estados para tracking
   const [trackingData, setTrackingData] = useState(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [trackingError, setTrackingError] = useState(null);
   
-  // ⚠️ REEMPLAZA ESTA URL CON LA TUYA DE GOOGLE APPS SCRIPT
   const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwkoHMBlomaB3DJ_kGuGxjUXmqTavXie5YKHeQUoqQo1XDckNo5wBS6SNCKOk79BU3C/exec';
   
-  const [formData, setFormData] = useState({
-    nombreEmpresa: '',
-    objetoSocial: '',
-    ciudadSociedad: 'Bogotá D.C.',
-    direccionSociedad: '',
-    telefonoSociedad: '',
-    emailSociedad: '',
-    capitalPreset: 'startup',
-    capitalAutorizado: '100000000',
-    capitalSuscrito: '1000000',
-    capitalPagado: '1000000',
-    accionistas: [{
-      id: 1,
+  // Estado del formulario separado para evitar re-renders
+  const [nombreEmpresa, setNombreEmpresa] = useState('');
+  const [objetoSocial, setObjetoSocial] = useState('');
+  const [ciudadSociedad, setCiudadSociedad] = useState('Bogotá D.C.');
+  const [direccionSociedad, setDireccionSociedad] = useState('');
+  const [telefonoSociedad, setTelefonoSociedad] = useState('');
+  const [emailSociedad, setEmailSociedad] = useState('');
+  const [capitalPreset, setCapitalPreset] = useState('startup');
+  const [capitalAutorizado, setCapitalAutorizado] = useState('100000000');
+  const [capitalSuscrito, setCapitalSuscrito] = useState('1000000');
+  const [capitalPagado, setCapitalPagado] = useState('1000000');
+  const [aceptaPolitica, setAceptaPolitica] = useState(false);
+  
+  const [accionistas, setAccionistas] = useState([{
+    id: 1,
+    tipoPersona: 'natural',
+    nombres: '',
+    tipoDocumento: 'CC',
+    numeroDocumento: '',
+    lugarExpedicion: '',
+    nacionalidad: 'Colombiana',
+    razonSocial: '',
+    nit: '',
+    repLegalNombres: '',
+    repLegalCedula: '',
+    ciudadDomicilio: '',
+    direccionResidencia: '',
+    email: '',
+    telefono: '',
+    porcentaje: 100,
+    esGerente: true,
+    documentoFileName: '',
+    documentoBase64: '',
+  }]);
+
+  const tieneExtranjeros = accionistas.some(a => 
+    a.tipoPersona === 'natural' && a.nacionalidad.toLowerCase() !== 'colombiana' && a.nacionalidad !== ''
+  );
+
+  const totalPorcentaje = accionistas.reduce((sum, a) => sum + (parseFloat(a.porcentaje) || 0), 0);
+
+  // Función para actualizar un accionista específico
+  const updateAccionista = (index, field, value) => {
+    setAccionistas(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      
+      // Si se marca como gerente, desmarcar los demás
+      if (field === 'esGerente' && value === true) {
+        updated.forEach((acc, i) => {
+          if (i !== index) updated[i] = { ...updated[i], esGerente: false };
+        });
+      }
+      return updated;
+    });
+  };
+
+  const handleFileUpload = (index, file) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert('El archivo es muy grande. Máximo 10MB.');
+      return;
+    }
+    setUploadProgress(prev => ({ ...prev, [index]: 'loading' }));
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target.result.split(',')[1];
+      updateAccionista(index, 'documentoFileName', file.name);
+      updateAccionista(index, 'documentoBase64', base64);
+      setUploadProgress(prev => ({ ...prev, [index]: 'done' }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const addAccionista = () => {
+    const restante = Math.max(0, 100 - totalPorcentaje);
+    setAccionistas(prev => [...prev, {
+      id: Date.now(),
       tipoPersona: 'natural',
       nombres: '',
       tipoDocumento: 'CC',
@@ -641,263 +107,104 @@ export default function ConstitucionSAS() {
       direccionResidencia: '',
       email: '',
       telefono: '',
-      porcentaje: 100,
-      esGerente: true,
-      documentoFile: null,
+      porcentaje: restante,
+      esGerente: false,
       documentoFileName: '',
       documentoBase64: '',
-    }],
-    gerenteSuplente: {
-      tiene: false,
-      nombres: '',
-      tipoDocumento: 'CC',
-      numeroDocumento: '',
-      lugarExpedicion: '',
-    },
-    aceptaPolitica: false,
-  });
+    }]);
+  };
 
-  const tieneExtranjeros = formData.accionistas.some(a => 
-    a.tipoPersona === 'natural' && a.nacionalidad.toLowerCase() !== 'colombiana' && a.nacionalidad !== ''
-  );
-
-  const totalPorcentaje = formData.accionistas.reduce((sum, a) => sum + (parseFloat(a.porcentaje) || 0), 0);
-
-  // Usando useCallback para evitar re-renders innecesarios
-  const handleInputChange = useCallback((e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  }, []);
-
-  const handleAccionistaChange = useCallback((index, field, value) => {
-    setFormData(prev => {
-      const newAccionistas = [...prev.accionistas];
-      newAccionistas[index] = { ...newAccionistas[index], [field]: value };
-      if (field === 'esGerente' && value === true) {
-        newAccionistas.forEach((acc, i) => {
-          if (i !== index) acc.esGerente = false;
-        });
+  const removeAccionista = (index) => {
+    if (accionistas.length <= 1) return;
+    setAccionistas(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      if (!updated.some(a => a.esGerente)) {
+        updated[0] = { ...updated[0], esGerente: true };
       }
-      return { ...prev, accionistas: newAccionistas };
+      return updated;
     });
-  }, []);
+  };
 
-  const handleFileUpload = useCallback(async (index, file) => {
-    if (!file) return;
-    
-    if (file.size > 10 * 1024 * 1024) {
-      alert('El archivo es muy grande. Máximo 10MB.');
-      return;
+  const handleCapitalPreset = (preset) => {
+    setCapitalPreset(preset);
+    if (preset === 'startup') {
+      setCapitalAutorizado('100000000');
+      setCapitalSuscrito('1000000');
+      setCapitalPagado('1000000');
+    } else if (preset === 'pyme') {
+      setCapitalAutorizado('500000000');
+      setCapitalSuscrito('50000000');
+      setCapitalPagado('50000000');
+    } else if (preset === 'grande') {
+      setCapitalAutorizado('1000000000');
+      setCapitalSuscrito('100000000');
+      setCapitalPagado('100000000');
     }
-    
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) {
-      alert('Formato no válido. Usa PDF, JPG o PNG.');
-      return;
-    }
-    
-    setUploadProgress(prev => ({ ...prev, [index]: 'loading' }));
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target.result.split(',')[1];
-      setFormData(prev => {
-        const newAccionistas = [...prev.accionistas];
-        newAccionistas[index] = {
-          ...newAccionistas[index],
-          documentoFile: file,
-          documentoFileName: file.name,
-          documentoBase64: base64
-        };
-        return { ...prev, accionistas: newAccionistas };
-      });
-      setUploadProgress(prev => ({ ...prev, [index]: 'done' }));
-    };
-    reader.onerror = () => {
-      alert('Error al leer el archivo');
-      setUploadProgress(prev => ({ ...prev, [index]: 'error' }));
-    };
-    reader.readAsDataURL(file);
-  }, []);
-
-  const addAccionista = useCallback(() => {
-    setFormData(prev => {
-      const currentTotal = prev.accionistas.reduce((sum, a) => sum + (parseFloat(a.porcentaje) || 0), 0);
-      const restante = Math.max(0, 100 - currentTotal);
-      return {
-        ...prev,
-        accionistas: [...prev.accionistas, {
-          id: Date.now(),
-          tipoPersona: 'natural',
-          nombres: '',
-          tipoDocumento: 'CC',
-          numeroDocumento: '',
-          lugarExpedicion: '',
-          nacionalidad: 'Colombiana',
-          razonSocial: '',
-          nit: '',
-          repLegalNombres: '',
-          repLegalCedula: '',
-          ciudadDomicilio: '',
-          direccionResidencia: '',
-          email: '',
-          telefono: '',
-          porcentaje: restante,
-          esGerente: false,
-          documentoFile: null,
-          documentoFileName: '',
-          documentoBase64: '',
-        }]
-      };
-    });
-  }, []);
-
-  const removeAccionista = useCallback((index) => {
-    setFormData(prev => {
-      if (prev.accionistas.length <= 1) return prev;
-      const newAccionistas = prev.accionistas.filter((_, i) => i !== index);
-      if (!newAccionistas.some(a => a.esGerente)) {
-        newAccionistas[0].esGerente = true;
-      }
-      return { ...prev, accionistas: newAccionistas };
-    });
-  }, []);
-
-  const handleCapitalPreset = useCallback((preset) => {
-    const presets = {
-      startup: { autorizado: '100000000', suscrito: '1000000', pagado: '1000000' },
-      pyme: { autorizado: '500000000', suscrito: '50000000', pagado: '50000000' },
-      grande: { autorizado: '1000000000', suscrito: '100000000', pagado: '100000000' },
-    };
-    
-    if (preset === 'personalizado') {
-      setFormData(prev => ({ ...prev, capitalPreset: preset }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        capitalPreset: preset,
-        capitalAutorizado: presets[preset].autorizado,
-        capitalSuscrito: presets[preset].suscrito,
-        capitalPagado: presets[preset].pagado,
-      }));
-    }
-  }, []);
+  };
 
   const validateStep = (step) => {
-    switch(step) {
-      case 1:
-        if (!formData.nombreEmpresa.trim()) {
-          alert('Ingresa el nombre de la empresa');
-          return false;
-        }
-        if (!formData.objetoSocial.trim()) {
-          alert('Describe el objeto social / actividad económica');
-          return false;
-        }
-        if (!formData.ciudadSociedad.trim()) {
-          alert('Ingresa la ciudad de la sociedad');
-          return false;
-        }
-        return true;
-      case 2:
-        for (let i = 0; i < formData.accionistas.length; i++) {
-          const acc = formData.accionistas[i];
-          
-          if (acc.tipoPersona === 'natural') {
-            if (!acc.nombres.trim()) {
-              alert(`Ingresa los nombres del accionista ${i + 1}`);
-              return false;
-            }
-            if (!acc.numeroDocumento.trim()) {
-              alert(`Ingresa el número de documento del accionista ${i + 1}`);
-              return false;
-            }
-          } else {
-            if (!acc.razonSocial.trim()) {
-              alert(`Ingresa la razón social del accionista ${i + 1}`);
-              return false;
-            }
-            if (!acc.nit.trim()) {
-              alert(`Ingresa el NIT del accionista ${i + 1}`);
-              return false;
-            }
-            if (!acc.repLegalNombres.trim()) {
-              alert(`Ingresa el nombre del representante legal del accionista ${i + 1}`);
-              return false;
-            }
-            if (!acc.repLegalCedula.trim()) {
-              alert(`Ingresa la cédula del representante legal del accionista ${i + 1}`);
-              return false;
-            }
-          }
-          
-          if (!acc.email.trim()) {
-            alert(`Ingresa el email del accionista ${i + 1}`);
-            return false;
-          }
-        }
-        if (Math.abs(totalPorcentaje - 100) > 0.01) {
-          alert(`Los porcentajes deben sumar 100%. Actualmente suman ${totalPorcentaje}%`);
-          return false;
-        }
-        return true;
-      case 3:
-        if (!formData.aceptaPolitica) {
-          alert('Debes aceptar la política de tratamiento de datos');
-          return false;
-        }
-        return true;
-      default:
-        return true;
+    if (step === 1) {
+      if (!nombreEmpresa.trim()) { alert('Ingresa el nombre de la empresa'); return false; }
+      if (!objetoSocial.trim()) { alert('Describe el objeto social'); return false; }
+      if (!ciudadSociedad.trim()) { alert('Ingresa la ciudad'); return false; }
+      return true;
     }
+    if (step === 2) {
+      for (let i = 0; i < accionistas.length; i++) {
+        const acc = accionistas[i];
+        if (acc.tipoPersona === 'natural') {
+          if (!acc.nombres.trim()) { alert(`Ingresa los nombres del accionista ${i + 1}`); return false; }
+          if (!acc.numeroDocumento.trim()) { alert(`Ingresa el documento del accionista ${i + 1}`); return false; }
+        } else {
+          if (!acc.razonSocial.trim()) { alert(`Ingresa la razón social del accionista ${i + 1}`); return false; }
+          if (!acc.nit.trim()) { alert(`Ingresa el NIT del accionista ${i + 1}`); return false; }
+          if (!acc.repLegalNombres.trim()) { alert(`Ingresa el rep. legal del accionista ${i + 1}`); return false; }
+          if (!acc.repLegalCedula.trim()) { alert(`Ingresa la cédula del rep. legal del accionista ${i + 1}`); return false; }
+        }
+        if (!acc.email.trim()) { alert(`Ingresa el email del accionista ${i + 1}`); return false; }
+      }
+      if (Math.abs(totalPorcentaje - 100) > 0.01) { alert(`Los porcentajes deben sumar 100%. Actualmente: ${totalPorcentaje}%`); return false; }
+      return true;
+    }
+    if (step === 3) {
+      if (!aceptaPolitica) { alert('Debes aceptar la política de datos'); return false; }
+      return true;
+    }
+    return true;
   };
 
-  const nextStep = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 4));
-    }
-  };
-
-  const prevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
-  };
+  const nextStep = () => { if (validateStep(currentStep)) setCurrentStep(s => Math.min(s + 1, 4)); };
+  const prevStep = () => { setCurrentStep(s => Math.max(s - 1, 1)); };
 
   const generateTrackingCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = 'DL-';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
     return code;
   };
 
   const handleSubmit = async () => {
     if (!validateStep(3)) return;
-    
     setIsSubmitting(true);
-    const newTrackingCode = generateTrackingCode();
-    
+    const newCode = generateTrackingCode();
     try {
       const payload = {
-        trackingCode: newTrackingCode,
+        trackingCode: newCode,
         empresa: {
-          nombre: formData.nombreEmpresa.toUpperCase(),
-          objetoSocial: formData.objetoSocial,
-          ciudad: formData.ciudadSociedad,
-          direccion: formData.direccionSociedad,
-          telefono: formData.telefonoSociedad,
-          email: formData.emailSociedad,
+          nombre: nombreEmpresa.toUpperCase(),
+          objetoSocial: objetoSocial,
+          ciudad: ciudadSociedad,
+          direccion: direccionSociedad,
+          telefono: telefonoSociedad,
+          email: emailSociedad,
         },
         capital: {
-          autorizado: formData.capitalAutorizado,
-          suscrito: formData.capitalSuscrito,
-          pagado: formData.capitalPagado,
+          autorizado: capitalAutorizado,
+          suscrito: capitalSuscrito,
+          pagado: capitalPagado,
           valorAccion: '1000',
         },
-        accionistas: formData.accionistas.map(acc => ({
+        accionistas: accionistas.map(acc => ({
           tipoPersona: acc.tipoPersona,
           nombres: acc.nombres.toUpperCase(),
           tipoDocumento: acc.tipoDocumento,
@@ -917,23 +224,19 @@ export default function ConstitucionSAS() {
           documentoFileName: acc.documentoFileName,
           documentoBase64: acc.documentoBase64,
         })),
-        gerenteSuplente: formData.gerenteSuplente,
-        tieneExtranjeros: tieneExtranjeros,
+        tieneExtranjeros,
       };
-      
       await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      
-      setTrackingCode(newTrackingCode);
+      setTrackingCode(newCode);
       setCurrentStep(4);
-      
     } catch (error) {
       console.error('Error:', error);
-      setTrackingCode(newTrackingCode);
+      setTrackingCode(newCode);
       setCurrentStep(4);
     } finally {
       setIsSubmitting(false);
@@ -943,1170 +246,613 @@ export default function ConstitucionSAS() {
   const handleTrackingSubmit = async (e) => {
     e.preventDefault();
     const codigo = e.target.codigo.value.trim().toUpperCase();
-    
-    if (!codigo) {
-      setTrackingError('Ingresa un código de seguimiento');
-      return;
-    }
-    
+    if (!codigo) { setTrackingError('Ingresa un código'); return; }
     setTrackingLoading(true);
     setTrackingError(null);
     setTrackingData(null);
-    
     try {
       const response = await fetch(`${GOOGLE_SCRIPT_URL}?codigo=${codigo}`);
       const data = await response.json();
-      
-      if (data.success) {
-        setTrackingData(data.data);
-      } else {
-        setTrackingError(data.error || 'No se encontró el código');
-      }
+      if (data.success) setTrackingData(data.data);
+      else setTrackingError(data.error || 'No encontrado');
     } catch (error) {
-      setTrackingError('Error al consultar. Intenta de nuevo.');
+      setTrackingError('Error al consultar');
     } finally {
       setTrackingLoading(false);
     }
   };
 
-  const formatCurrency = (num) => {
-    return '$' + parseInt(num || 0).toLocaleString('es-CO');
+  const formatCurrency = (num) => '$' + parseInt(num || 0).toLocaleString('es-CO');
+
+  const getStatusColor = (estado) => {
+    const colors = {
+      'Recibida': { bg: '#e0f2fe', text: '#0369a1' },
+      'En revisión': { bg: '#fef3c7', text: '#d97706' },
+      'Documentos listos': { bg: '#d1fae5', text: '#059669' },
+      'Pendiente firma': { bg: '#fce7f3', text: '#be185d' },
+      'Pendiente pago': { bg: '#fee2e2', text: '#dc2626' },
+      'En Cámara': { bg: '#e0e7ff', text: '#4338ca' },
+      'Constituida': { bg: '#dcfce7', text: '#16a34a' },
+    };
+    return colors[estado] || colors['Recibida'];
   };
 
-  const resetForm = () => {
-    setCurrentView('landing');
-    setCurrentStep(1);
-    setFormData({
-      nombreEmpresa: '',
-      objetoSocial: '',
-      ciudadSociedad: 'Bogotá D.C.',
-      direccionSociedad: '',
-      telefonoSociedad: '',
-      emailSociedad: '',
-      capitalPreset: 'startup',
-      capitalAutorizado: '100000000',
-      capitalSuscrito: '1000000',
-      capitalPagado: '1000000',
-      accionistas: [{
-        id: 1,
-        tipoPersona: 'natural',
-        nombres: '',
-        tipoDocumento: 'CC',
-        numeroDocumento: '',
-        lugarExpedicion: '',
-        nacionalidad: 'Colombiana',
-        razonSocial: '',
-        nit: '',
-        repLegalNombres: '',
-        repLegalCedula: '',
-        ciudadDomicilio: '',
-        direccionResidencia: '',
-        email: '',
-        telefono: '',
-        porcentaje: 100,
-        esGerente: true,
-        documentoFile: null,
-        documentoFileName: '',
-        documentoBase64: '',
-      }],
-      gerenteSuplente: {
-        tiene: false,
-        nombres: '',
-        tipoDocumento: 'CC',
-        numeroDocumento: '',
-        lugarExpedicion: '',
-      },
-      aceptaPolitica: false,
-    });
-  };
-
-  // ============================================================================
-  // LANDING PAGE
-  // ============================================================================
-  const LandingPage = () => (
+  return (
     <>
-      <section style={styles.heroSection}>
-        <div style={styles.heroPattern}></div>
-        <div style={styles.heroContent}>
-          <div style={styles.heroBadge}>
-            ⚡ Proceso 100% digital
-          </div>
-          <h1 style={styles.heroTitle}>
-            Constituye tu <span style={styles.heroHighlight}>S.A.S.</span><br />
-            en Colombia
-          </h1>
-          <p style={styles.heroSubtitle}>
-            Simplificamos el proceso de crear tu empresa. Completa el formulario, 
-            nosotros nos encargamos del papeleo legal y la inscripción en Cámara de Comercio.
-          </p>
-          <div style={styles.heroCTA}>
-            <button 
-              style={styles.primaryBtn}
-              onClick={() => setCurrentView('form')}
-            >
-              Comenzar ahora →
-            </button>
-            <button 
-              style={styles.secondaryBtn}
-              onClick={() => setCurrentView('tracking')}
-            >
-              Consultar mi solicitud
-            </button>
-          </div>
-        </div>
-      </section>
+      <style>{`
+        * { box-sizing: border-box; }
+        .container { min-height: 100vh; background: linear-gradient(135deg, #f8f9fc 0%, #e8ecf4 100%); font-family: 'Inter', -apple-system, sans-serif; }
+        .header { background: linear-gradient(135deg, #232C54 0%, #1a2140 100%); padding: 20px 24px; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: 700; }
+        .back-btn { background: rgba(255,255,255,0.15); border: none; color: #fff; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+        .hero { background: linear-gradient(135deg, #232C54 0%, #1a2140 100%); padding: 100px 24px 80px; text-align: center; color: #fff; }
+        .hero-badge { display: inline-block; background: rgba(216, 90, 45, 0.2); border: 1px solid rgba(216, 90, 45, 0.4); padding: 8px 16px; border-radius: 50px; font-size: 14px; margin-bottom: 24px; color: #FFB088; }
+        .hero-title { font-size: clamp(32px, 6vw, 52px); font-weight: 800; margin-bottom: 20px; }
+        .hero-highlight { background: linear-gradient(90deg, #D85A2D, #FF8C5A); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero-subtitle { font-size: 18px; opacity: 0.85; max-width: 600px; margin: 0 auto 40px; }
+        .btn-primary { background: linear-gradient(135deg, #D85A2D 0%, #e86a3d 100%); color: #fff; border: none; padding: 18px 48px; font-size: 18px; font-weight: 600; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 20px rgba(216, 90, 45, 0.4); }
+        .btn-secondary { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,0.3); padding: 16px 40px; font-size: 16px; border-radius: 12px; cursor: pointer; margin-top: 16px; }
+        .btn-gray { background: #f1f5f9; color: #475569; border: none; padding: 16px 32px; font-size: 16px; font-weight: 600; border-radius: 12px; cursor: pointer; }
+        .btn-orange { background: linear-gradient(135deg, #D85A2D, #e86a3d); color: #fff; border: none; padding: 16px 32px; font-size: 16px; font-weight: 600; border-radius: 12px; cursor: pointer; }
+        .features { padding: 80px 24px; max-width: 1200px; margin: 0 auto; }
+        .features-title { text-align: center; font-size: 32px; font-weight: 700; color: #232C54; margin-bottom: 48px; }
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+        .feature-card { background: #fff; border-radius: 16px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+        .feature-icon { font-size: 32px; margin-bottom: 16px; }
+        .feature-title { font-size: 20px; font-weight: 600; color: #232C54; margin-bottom: 8px; }
+        .feature-desc { color: #666; }
+        .price-section { background: #fff; padding: 60px 24px; text-align: center; }
+        .price-card { max-width: 400px; margin: 0 auto; background: linear-gradient(135deg, #232C54 0%, #1a2140 100%); border-radius: 24px; padding: 40px; color: #fff; }
+        .price-amount { font-size: 48px; font-weight: 800; }
+        .price-iva { opacity: 0.7; margin-bottom: 24px; }
+        .form-container { max-width: 800px; margin: 0 auto; padding: 40px 24px; }
+        .progress { display: flex; justify-content: space-between; margin-bottom: 40px; }
+        .progress-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .progress-circle { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; margin-bottom: 8px; }
+        .progress-label { font-size: 13px; }
+        .form-card { background: #fff; border-radius: 20px; padding: clamp(24px, 5vw, 40px); box-shadow: 0 10px 40px rgba(0,0,0,0.08); }
+        .form-title { font-size: 28px; font-weight: 700; color: #232C54; margin-bottom: 8px; }
+        .form-subtitle { color: #666; margin-bottom: 32px; }
+        .input-group { margin-bottom: 24px; }
+        .label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .required { color: #D85A2D; }
+        .input { width: 100%; padding: 14px 16px; border: 2px solid #e8ecf4; border-radius: 10px; font-size: 16px; }
+        .input:focus { outline: none; border-color: #D85A2D; }
+        .textarea { width: 100%; padding: 14px 16px; border: 2px solid #e8ecf4; border-radius: 10px; font-size: 16px; min-height: 100px; font-family: inherit; resize: vertical; }
+        .textarea:focus { outline: none; border-color: #D85A2D; }
+        .input-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .input-row-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 16px; }
+        .capital-info { background: #f0f4ff; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+        .capital-title { font-weight: 600; color: #232C54; margin-bottom: 12px; }
+        .capital-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+        .capital-btn { padding: 16px; border: 2px solid #e8ecf4; border-radius: 12px; background: #fff; cursor: pointer; text-align: center; }
+        .capital-btn.active { border-color: #D85A2D; background: rgba(216,90,45,0.05); }
+        .capital-label { font-weight: 600; color: #232C54; }
+        .capital-desc { font-size: 12px; color: #666; }
+        .btn-row { display: flex; gap: 16px; margin-top: 32px; }
+        .btn-row button { flex: 1; }
+        .accionista-card { background: #f8f9fc; border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 2px solid transparent; }
+        .accionista-card.gerente { border-color: #D85A2D; }
+        .accionista-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .accionista-title { font-weight: 600; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; }
+        .badge-gerente { background: #fef3c7; color: #d97706; }
+        .btn-remove { background: #fee2e2; border: none; color: #dc2626; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+        .tipo-persona { display: flex; gap: 12px; margin-bottom: 24px; }
+        .tipo-btn { flex: 1; padding: 16px; border: 2px solid #e8ecf4; border-radius: 12px; background: #fff; cursor: pointer; text-align: center; }
+        .tipo-btn.active { border-color: #D85A2D; background: rgba(216,90,45,0.05); }
+        .tipo-icon { font-size: 28px; }
+        .tipo-label { font-weight: 600; }
+        .rep-legal-box { background: #f0f4ff; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+        .rep-legal-title { font-weight: 600; margin-bottom: 12px; }
+        .checkbox-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; cursor: pointer; }
+        .checkbox { width: 20px; height: 20px; accent-color: #D85A2D; }
+        .upload-area { border: 2px dashed #d0d5dd; border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; background: #fafafa; }
+        .upload-area.done { background: #f0fdf4; border-color: #22c55e; }
+        .upload-icon { font-size: 32px; margin-bottom: 8px; }
+        .upload-text { color: #666; }
+        .porcentaje-bar { border-radius: 10px; padding: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+        .porcentaje-bar.ok { background: #f0fdf4; border: 1px solid #86efac; }
+        .porcentaje-bar.warning { background: #fef3c7; border: 1px solid #fcd34d; }
+        .porcentaje-value { font-weight: 700; font-size: 20px; }
+        .porcentaje-value.ok { color: #16a34a; }
+        .porcentaje-value.warning { color: #d97706; }
+        .btn-add { width: 100%; padding: 16px; border: 2px dashed #D85A2D; border-radius: 12px; background: rgba(216,90,45,0.05); color: #D85A2D; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .summary-box { background: #f8f9fc; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .summary-title { margin: 0 0 16px; }
+        .summary-item { padding: 12px; background: #fff; border-radius: 8px; margin-bottom: 8px; border: 1px solid #e5e7eb; display: flex; justify-content: space-between; }
+        .summary-item.gerente { border: 2px solid #D85A2D; }
+        .alert-warning { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .policy-check { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+        .policy-checkbox { width: 22px; height: 22px; margin-top: 2px; accent-color: #D85A2D; }
+        .policy-link { color: #D85A2D; }
+        .success-card { text-align: center; padding: 48px 24px; }
+        .success-icon { width: 100px; height: 100px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 28px; font-size: 48px; color: #fff; }
+        .tracking-display { background: linear-gradient(135deg, #232C54, #1a2140); color: #fff; padding: 28px; border-radius: 16px; margin-bottom: 32px; }
+        .tracking-code { font-size: 36px; font-weight: 800; color: #D85A2D; letter-spacing: 4px; }
+        .tracking-container { max-width: 600px; margin: 0 auto; padding: 40px 24px; }
+        .tracking-form { display: flex; gap: 12px; margin-bottom: 24px; }
+        .tracking-input { flex: 1; padding: 14px 16px; border: 2px solid #e8ecf4; border-radius: 10px; font-size: 16px; text-transform: uppercase; }
+        .tracking-result { background: #f8f9fc; border-radius: 16px; padding: 24px; }
+        .status-badge { display: inline-block; padding: 8px 20px; border-radius: 50px; font-weight: 600; }
+        .tracking-info { display: grid; gap: 12px; }
+        .tracking-row { display: flex; justify-content: space-between; }
+        .docs-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; margin-top: 20px; }
+        .docs-title { font-weight: 600; color: #16a34a; margin-bottom: 16px; font-size: 18px; }
+        .doc-item { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+        .doc-link { background: #D85A2D; color: #fff; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 500; }
+        .error-box { background: #fee2e2; border: 1px solid #fecaca; border-radius: 10px; padding: 16px; color: #dc2626; margin-bottom: 20px; }
+        .footer { background: #232C54; color: #fff; padding: 40px 24px; text-align: center; }
+        .footer-logo { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+        .footer-text { opacity: 0.7; margin-bottom: 16px; }
+        .footer-copy { font-size: 14px; opacity: 0.5; }
+      `}</style>
 
-      <section style={styles.featuresSection}>
-        <h2 style={styles.sectionTitle}>¿Por qué elegirnos?</h2>
-        <p style={styles.sectionSubtitle}>Todo lo que necesitas para crear tu empresa</p>
-        
-        <div style={styles.featuresGrid}>
-          <div style={styles.featureCard}>
-            <div style={{...styles.featureIcon, background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'}}>
-              📝
-            </div>
-            <h3 style={styles.featureTitle}>Proceso 100% Digital</h3>
-            <p style={styles.featureDesc}>
-              Completa todo desde tu computador o celular. Sin filas, sin desplazamientos.
-            </p>
-          </div>
-          
-          <div style={styles.featureCard}>
-            <div style={{...styles.featureIcon, background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'}}>
-              ⚖️
-            </div>
-            <h3 style={styles.featureTitle}>Abogados Expertos</h3>
-            <p style={styles.featureDesc}>
-              Nuestro equipo legal revisa cada documento para garantizar el cumplimiento normativo.
-            </p>
-          </div>
-          
-          <div style={styles.featureCard}>
-            <div style={{...styles.featureIcon, background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)'}}>
-              🏢
-            </div>
-            <h3 style={styles.featureTitle}>Personas Naturales y Jurídicas</h3>
-            <p style={styles.featureDesc}>
-              Acepta accionistas tanto personas naturales como sociedades (personas jurídicas).
-            </p>
-          </div>
-          
-          <div style={styles.featureCard}>
-            <div style={{...styles.featureIcon, background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)'}}>
-              🔍
-            </div>
-            <h3 style={styles.featureTitle}>Seguimiento en Tiempo Real</h3>
-            <p style={styles.featureDesc}>
-              Consulta el estado de tu solicitud en cualquier momento con tu código único.
-            </p>
-          </div>
-        </div>
-      </section>
+      <div className="container">
+        {/* HEADER */}
+        {currentView !== 'landing' && (
+          <header className="header">
+            <div className="logo">Due Legal</div>
+            <button className="back-btn" onClick={() => setCurrentView('landing')}>← Inicio</button>
+          </header>
+        )}
 
-      <section style={styles.priceSection}>
-        <h2 style={styles.sectionTitle}>Precio transparente</h2>
-        <p style={styles.sectionSubtitle}>Sin costos ocultos ni sorpresas</p>
-        
-        <div style={styles.priceCard}>
-          <div style={styles.priceAmount}>$1.250.000</div>
-          <div style={styles.priceIva}>+ IVA (No incluye impuestos de Cámara de Comercio)</div>
-          
-          <div style={styles.priceIncludes}>
-            {['Estatutos sociales personalizados', 'Poderes de constitución', 'Inscripción ante Cámara de Comercio', 'Registro de libros societarios', 'Inscripción del RUT', 'Soporte legal durante el proceso'].map((item, i) => (
-              <div key={i} style={styles.priceItem}>
-                <span style={{color: '#22c55e'}}>✓</span>
-                {item}
-              </div>
-            ))}
-          </div>
-          
-          <button 
-            style={{...styles.primaryBtn, width: '100%', justifyContent: 'center'}}
-            onClick={() => setCurrentView('form')}
-          >
-            Iniciar proceso →
-          </button>
-        </div>
-      </section>
-    </>
-  );
-
-  // ============================================================================
-  // RENDER ACCIONISTA
-  // ============================================================================
-  const renderAccionista = (acc, index) => {
-    const isNatural = acc.tipoPersona === 'natural';
-    
-    return (
-      <div 
-        key={acc.id} 
-        style={acc.esGerente ? styles.accionistaCardGerente : styles.accionistaCard}
-      >
-        <div style={styles.accionistaHeader}>
-          <div style={styles.accionistaTitle}>
-            <span>👤 Accionista {index + 1}</span>
-            {acc.esGerente && (
-              <span style={{
-                ...styles.accionistaBadge,
-                background: '#fef3c7',
-                color: '#d97706',
-              }}>
-                👔 Gerente
-              </span>
-            )}
-            <span style={{
-              ...styles.accionistaBadge,
-              background: isNatural ? '#dbeafe' : '#f3e8ff',
-              color: isNatural ? '#1d4ed8' : '#7c3aed',
-            }}>
-              {isNatural ? 'Persona Natural' : 'Persona Jurídica'}
-            </span>
-          </div>
-          {formData.accionistas.length > 1 && (
-            <button 
-              type="button"
-              style={styles.removeBtn}
-              onClick={() => removeAccionista(index)}
-            >
-              ✕ Eliminar
-            </button>
-          )}
-        </div>
-
-        <div style={styles.tipoPersonaSelector}>
-          <button
-            type="button"
-            style={{
-              ...styles.tipoPersonaBtn,
-              ...(isNatural ? styles.tipoPersonaBtnActive : {}),
-            }}
-            onClick={() => handleAccionistaChange(index, 'tipoPersona', 'natural')}
-          >
-            <div style={styles.tipoPersonaIcon}>👤</div>
-            <div style={styles.tipoPersonaLabel}>Persona Natural</div>
-          </button>
-          <button
-            type="button"
-            style={{
-              ...styles.tipoPersonaBtn,
-              ...(!isNatural ? styles.tipoPersonaBtnActive : {}),
-            }}
-            onClick={() => handleAccionistaChange(index, 'tipoPersona', 'juridica')}
-          >
-            <div style={styles.tipoPersonaIcon}>🏢</div>
-            <div style={styles.tipoPersonaLabel}>Persona Jurídica</div>
-          </button>
-        </div>
-
-        {isNatural ? (
+        {/* LANDING */}
+        {currentView === 'landing' && (
           <>
-            <div style={styles.inputRow}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>
-                  Nombres y apellidos<span style={styles.labelRequired}>*</span>
-                </label>
-                <input
-                  type="text"
-                  style={styles.input}
-                  value={acc.nombres}
-                  onChange={(e) => handleAccionistaChange(index, 'nombres', e.target.value)}
-                  placeholder="Juan Carlos Pérez García"
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>
-                  Nacionalidad<span style={styles.labelRequired}>*</span>
-                </label>
-                <input
-                  type="text"
-                  style={styles.input}
-                  value={acc.nacionalidad}
-                  onChange={(e) => handleAccionistaChange(index, 'nacionalidad', e.target.value)}
-                  placeholder="Colombiana"
-                />
-              </div>
-            </div>
+            <header className="header">
+              <div className="logo">Due Legal</div>
+            </header>
+            
+            <section className="hero">
+              <div className="hero-badge">⚡ Proceso 100% digital</div>
+              <h1 className="hero-title">
+                Constituye tu <span className="hero-highlight">S.A.S.</span><br />en Colombia
+              </h1>
+              <p className="hero-subtitle">Simplificamos el proceso de crear tu empresa. Completa el formulario, nosotros nos encargamos del papeleo.</p>
+              <button className="btn-primary" onClick={() => setCurrentView('form')}>Comenzar ahora →</button>
+              <br />
+              <button className="btn-secondary" onClick={() => setCurrentView('tracking')}>Consultar mi solicitud</button>
+            </section>
 
-            <div style={styles.inputRow}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Tipo documento<span style={styles.labelRequired}>*</span></label>
-                <select
-                  style={styles.select}
-                  value={acc.tipoDocumento}
-                  onChange={(e) => handleAccionistaChange(index, 'tipoDocumento', e.target.value)}
-                >
-                  <option value="CC">Cédula de Ciudadanía</option>
-                  <option value="CE">Cédula de Extranjería</option>
-                  <option value="PA">Pasaporte</option>
-                </select>
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Número de documento<span style={styles.labelRequired}>*</span></label>
-                <input
-                  type="text"
-                  style={styles.input}
-                  value={acc.numeroDocumento}
-                  onChange={(e) => handleAccionistaChange(index, 'numeroDocumento', e.target.value)}
-                  placeholder="1234567890"
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Lugar de expedición<span style={styles.labelRequired}>*</span></label>
-                <input
-                  type="text"
-                  style={styles.input}
-                  value={acc.lugarExpedicion}
-                  onChange={(e) => handleAccionistaChange(index, 'lugarExpedicion', e.target.value)}
-                  placeholder="Bogotá"
-                />
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={styles.inputRow}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>
-                  Razón Social<span style={styles.labelRequired}>*</span>
-                </label>
-                <input
-                  type="text"
-                  style={styles.input}
-                  value={acc.razonSocial}
-                  onChange={(e) => handleAccionistaChange(index, 'razonSocial', e.target.value)}
-                  placeholder="INVERSIONES ABC S.A.S."
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>
-                  NIT<span style={styles.labelRequired}>*</span>
-                </label>
-                <input
-                  type="text"
-                  style={styles.input}
-                  value={acc.nit}
-                  onChange={(e) => handleAccionistaChange(index, 'nit', e.target.value)}
-                  placeholder="900123456-7"
-                />
-              </div>
-            </div>
-
-            <div style={{
-              background: '#f0f4ff',
-              borderRadius: '10px',
-              padding: '16px',
-              marginBottom: '16px',
-            }}>
-              <div style={{fontWeight: '600', color: '#232C54', marginBottom: '12px'}}>
-                👔 Representante Legal de la sociedad accionista
-              </div>
-              <div style={styles.inputRow}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>
-                    Nombres completos<span style={styles.labelRequired}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    style={styles.input}
-                    value={acc.repLegalNombres}
-                    onChange={(e) => handleAccionistaChange(index, 'repLegalNombres', e.target.value)}
-                    placeholder="María Fernanda López"
-                  />
+            <section className="features">
+              <h2 className="features-title">¿Por qué elegirnos?</h2>
+              <div className="features-grid">
+                <div className="feature-card">
+                  <div className="feature-icon">📝</div>
+                  <h3 className="feature-title">Proceso Digital</h3>
+                  <p className="feature-desc">Completa todo desde tu computador o celular.</p>
                 </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>
-                    Cédula de ciudadanía<span style={styles.labelRequired}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    style={styles.input}
-                    value={acc.repLegalCedula}
-                    onChange={(e) => handleAccionistaChange(index, 'repLegalCedula', e.target.value)}
-                    placeholder="52987654"
-                  />
+                <div className="feature-card">
+                  <div className="feature-icon">⚖️</div>
+                  <h3 className="feature-title">Abogados Expertos</h3>
+                  <p className="feature-desc">Nuestro equipo revisa cada documento.</p>
+                </div>
+                <div className="feature-card">
+                  <div className="feature-icon">🏢</div>
+                  <h3 className="feature-title">Personas Naturales y Jurídicas</h3>
+                  <p className="feature-desc">Acepta todo tipo de accionistas.</p>
+                </div>
+                <div className="feature-card">
+                  <div className="feature-icon">🔍</div>
+                  <h3 className="feature-title">Seguimiento en Tiempo Real</h3>
+                  <p className="feature-desc">Consulta el estado con tu código.</p>
                 </div>
               </div>
-            </div>
+            </section>
+
+            <section className="price-section">
+              <h2 className="features-title">Precio transparente</h2>
+              <div className="price-card">
+                <div className="price-amount">$1.250.000</div>
+                <div className="price-iva">+ IVA</div>
+                <button className="btn-primary" style={{width: '100%'}} onClick={() => setCurrentView('form')}>Iniciar proceso →</button>
+              </div>
+            </section>
           </>
         )}
 
-        <div style={styles.inputRow}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Ciudad de domicilio<span style={styles.labelRequired}>*</span></label>
-            <input
-              type="text"
-              style={styles.input}
-              value={acc.ciudadDomicilio}
-              onChange={(e) => handleAccionistaChange(index, 'ciudadDomicilio', e.target.value)}
-              placeholder="Bogotá D.C."
-            />
-          </div>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Dirección</label>
-            <input
-              type="text"
-              style={styles.input}
-              value={acc.direccionResidencia}
-              onChange={(e) => handleAccionistaChange(index, 'direccionResidencia', e.target.value)}
-              placeholder="Calle 100 #15-20"
-            />
-          </div>
-        </div>
-
-        <div style={styles.inputRow}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Email<span style={styles.labelRequired}>*</span></label>
-            <input
-              type="email"
-              style={styles.input}
-              value={acc.email}
-              onChange={(e) => handleAccionistaChange(index, 'email', e.target.value)}
-              placeholder="email@ejemplo.com"
-            />
-          </div>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Teléfono<span style={styles.labelRequired}>*</span></label>
-            <input
-              type="tel"
-              style={styles.input}
-              value={acc.telefono}
-              onChange={(e) => handleAccionistaChange(index, 'telefono', e.target.value)}
-              placeholder="3001234567"
-            />
-          </div>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>% Participación<span style={styles.labelRequired}>*</span></label>
-            <input
-              type="number"
-              style={styles.input}
-              value={acc.porcentaje}
-              onChange={(e) => handleAccionistaChange(index, 'porcentaje', e.target.value)}
-              min="0"
-              max="100"
-            />
-          </div>
-        </div>
-
-        <label style={{...styles.checkbox, marginTop: '16px', marginBottom: '16px'}}>
-          <input
-            type="checkbox"
-            checked={acc.esGerente}
-            onChange={(e) => handleAccionistaChange(index, 'esGerente', e.target.checked)}
-            style={styles.checkboxInput}
-          />
-          <div>
-            <div style={{fontWeight: '600', color: '#232C54'}}>
-              Designar como Gerente (Representante Legal)
-            </div>
-            <div style={{fontSize: '13px', color: '#666'}}>
-              {isNatural 
-                ? 'Esta persona será quien represente legalmente a la sociedad' 
-                : 'El representante legal de esta sociedad actuará como gerente'}
-            </div>
-          </div>
-        </label>
-
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>
-            {isNatural ? 'Copia del documento de identidad' : 'RUT o Certificado de Existencia'}
-            <span style={styles.labelRequired}>*</span>
-          </label>
-          <div
-            style={{
-              ...styles.uploadArea,
-              ...(uploadProgress[index] === 'done' ? styles.uploadSuccess : {}),
-            }}
-            onClick={() => document.getElementById(`file-${acc.id}`).click()}
-          >
-            <input
-              id={`file-${acc.id}`}
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
-              style={{display: 'none'}}
-              onChange={(e) => handleFileUpload(index, e.target.files[0])}
-            />
-            {uploadProgress[index] === 'loading' ? (
-              <span>⏳ Cargando...</span>
-            ) : uploadProgress[index] === 'done' ? (
-              <>
-                <span style={{color: '#22c55e', fontWeight: '600'}}>✓</span>
-                <span>{acc.documentoFileName}</span>
-              </>
-            ) : (
-              <>
-                <div style={{fontSize: '32px', marginBottom: '8px'}}>📄</div>
-                <div style={{color: '#666'}}>
-                  {isNatural 
-                    ? 'Clic para subir cédula (PDF, JPG o PNG)' 
-                    : 'Clic para subir RUT o Certificado de Existencia'}
+        {/* FORMULARIO */}
+        {currentView === 'form' && (
+          <div className="form-container">
+            <div className="progress">
+              {['Empresa', 'Accionistas', 'Confirmar', 'Listo'].map((label, i) => (
+                <div key={label} className="progress-step">
+                  <div className="progress-circle" style={{
+                    background: currentStep > i + 1 ? '#22c55e' : currentStep === i + 1 ? '#D85A2D' : '#e5e7eb',
+                    color: currentStep >= i + 1 ? '#fff' : '#9ca3af'
+                  }}>
+                    {currentStep > i + 1 ? '✓' : i + 1}
+                  </div>
+                  <span className="progress-label" style={{ color: currentStep >= i + 1 ? '#232C54' : '#9ca3af' }}>{label}</span>
                 </div>
-                <div style={{fontSize: '12px', color: '#999', marginTop: '4px'}}>Máximo 10MB</div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ============================================================================
-  // FORM WIZARD
-  // ============================================================================
-  const FormWizard = () => (
-    <div style={styles.formContainer}>
-      <div style={styles.progressBar}>
-        <div style={styles.progressLine}>
-          <div style={{
-            height: '100%',
-            background: 'linear-gradient(90deg, #D85A2D, #e86a3d)',
-            transition: 'width 0.4s ease',
-            width: `${((currentStep - 1) / 3) * 100}%`,
-          }}></div>
-        </div>
-        {['Empresa', 'Accionistas', 'Confirmar', 'Listo'].map((label, i) => (
-          <div key={i} style={styles.stepIndicator}>
-            <div style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: '600',
-              fontSize: '16px',
-              transition: 'all 0.3s',
-              marginBottom: '10px',
-              background: currentStep > i + 1 ? '#22c55e' : currentStep === i + 1 ? '#D85A2D' : '#e5e7eb',
-              color: currentStep >= i + 1 ? '#fff' : '#9ca3af',
-            }}>
-              {currentStep > i + 1 ? '✓' : i + 1}
-            </div>
-            <span style={{
-              ...styles.stepLabel,
-              color: currentStep >= i + 1 ? '#232C54' : '#9ca3af',
-            }}>
-              {label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div style={styles.formCard}>
-        {/* Step 1: Datos de la empresa */}
-        {currentStep === 1 && (
-          <>
-            <h2 style={styles.formTitle}>Datos de tu empresa</h2>
-            <p style={styles.formSubtitle}>Información básica para constituir tu S.A.S.</p>
-
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>
-                Nombre de la empresa<span style={styles.labelRequired}>*</span>
-              </label>
-              <input
-                type="text"
-                name="nombreEmpresa"
-                style={styles.input}
-                value={formData.nombreEmpresa}
-                onChange={handleInputChange}
-                placeholder="Mi Empresa (sin S.A.S.)"
-              />
-              <small style={{color: '#666', fontSize: '13px'}}>
-                Se agregará automáticamente "S.A.S." al final
-              </small>
-            </div>
-
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>
-                Objeto social / Actividad económica<span style={styles.labelRequired}>*</span>
-              </label>
-              <textarea
-                name="objetoSocial"
-                style={styles.textarea}
-                value={formData.objetoSocial}
-                onChange={handleInputChange}
-                placeholder="Describe las actividades que realizará tu empresa. Ej: Desarrollo de software, consultoría tecnológica, comercialización de productos digitales..."
-              />
-              <small style={{color: '#666', fontSize: '13px'}}>
-                Describe claramente qué hará tu empresa. Esto aparecerá en los estatutos.
-              </small>
-            </div>
-
-            <div style={styles.inputRow}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>
-                  Ciudad de domicilio<span style={styles.labelRequired}>*</span>
-                </label>
-                <input
-                  type="text"
-                  name="ciudadSociedad"
-                  style={styles.input}
-                  value={formData.ciudadSociedad}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Dirección</label>
-                <input
-                  type="text"
-                  name="direccionSociedad"
-                  style={styles.input}
-                  value={formData.direccionSociedad}
-                  onChange={handleInputChange}
-                  placeholder="Calle/Carrera..."
-                />
-              </div>
-            </div>
-
-            <div style={styles.inputRow}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Teléfono</label>
-                <input
-                  type="tel"
-                  name="telefonoSociedad"
-                  style={styles.input}
-                  value={formData.telefonoSociedad}
-                  onChange={handleInputChange}
-                  placeholder="3001234567"
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Email de la empresa</label>
-                <input
-                  type="email"
-                  name="emailSociedad"
-                  style={styles.input}
-                  value={formData.emailSociedad}
-                  onChange={handleInputChange}
-                  placeholder="contacto@miempresa.com"
-                />
-              </div>
-            </div>
-
-            <div style={styles.capitalInfo}>
-              <div style={styles.capitalInfoTitle}>
-                💡 ¿Qué es el capital social?
-              </div>
-              <p style={{fontSize: '14px', color: '#555', lineHeight: '1.6', margin: 0}}>
-                <strong>Autorizado:</strong> Límite máximo de capital que puede tener la empresa.<br/>
-                <strong>Suscrito:</strong> Capital que los accionistas se comprometen a aportar.<br/>
-                <strong>Pagado:</strong> Capital efectivamente aportado al momento de la constitución.
-              </p>
-            </div>
-
-            <label style={styles.label}>Selecciona un esquema de capital</label>
-            <div style={styles.capitalPresetGrid}>
-              {[
-                { key: 'startup', label: 'Startup', auth: '100M', sus: '1M' },
-                { key: 'pyme', label: 'PyME', auth: '500M', sus: '50M' },
-                { key: 'grande', label: 'Grande', auth: '1.000M', sus: '100M' },
-                { key: 'personalizado', label: 'Personalizado', auth: '...', sus: '...' },
-              ].map(preset => (
-                <button
-                  key={preset.key}
-                  type="button"
-                  style={{
-                    ...styles.capitalPresetBtn,
-                    ...(formData.capitalPreset === preset.key ? styles.capitalPresetActive : {}),
-                  }}
-                  onClick={() => handleCapitalPreset(preset.key)}
-                >
-                  <div style={{fontWeight: '600', color: '#232C54', marginBottom: '4px'}}>
-                    {preset.label}
-                  </div>
-                  <div style={{fontSize: '12px', color: '#666'}}>
-                    Aut: {preset.auth} / Sus: {preset.sus}
-                  </div>
-                </button>
               ))}
             </div>
 
-            {formData.capitalPreset === 'personalizado' && (
-              <div style={styles.inputRow}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Capital Autorizado</label>
-                  <input
-                    type="number"
-                    name="capitalAutorizado"
-                    style={styles.input}
-                    value={formData.capitalAutorizado}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Capital Suscrito</label>
-                  <input
-                    type="number"
-                    name="capitalSuscrito"
-                    style={styles.input}
-                    value={formData.capitalSuscrito}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Capital Pagado</label>
-                  <input
-                    type="number"
-                    name="capitalPagado"
-                    style={styles.input}
-                    value={formData.capitalPagado}
-                    onChange={handleInputChange}
-                  />
-                </div>
-              </div>
-            )}
+            <div className="form-card">
+              {/* PASO 1 */}
+              {currentStep === 1 && (
+                <>
+                  <h2 className="form-title">Datos de tu empresa</h2>
+                  <p className="form-subtitle">Información básica para constituir tu S.A.S.</p>
 
-            <div style={styles.buttonRow}>
-              <button 
-                type="button" 
-                style={styles.btnSecondary}
-                onClick={() => setCurrentView('landing')}
-              >
-                ← Volver
-              </button>
-              <button 
-                type="button" 
-                style={styles.btnPrimary}
-                onClick={nextStep}
-              >
-                Continuar →
-              </button>
-            </div>
-          </>
-        )}
+                  <div className="input-group">
+                    <label className="label">Nombre de la empresa <span className="required">*</span></label>
+                    <input 
+                      type="text" 
+                      className="input" 
+                      value={nombreEmpresa} 
+                      onChange={(e) => setNombreEmpresa(e.target.value)} 
+                      placeholder="Mi Empresa (sin S.A.S.)" 
+                    />
+                  </div>
 
-        {/* Step 2: Accionistas */}
-        {currentStep === 2 && (
-          <>
-            <h2 style={styles.formTitle}>Accionistas</h2>
-            <p style={styles.formSubtitle}>
-              Puedes agregar personas naturales o jurídicas como accionistas
-            </p>
+                  <div className="input-group">
+                    <label className="label">Objeto social <span className="required">*</span></label>
+                    <textarea 
+                      className="textarea" 
+                      value={objetoSocial} 
+                      onChange={(e) => setObjetoSocial(e.target.value)} 
+                      placeholder="Describe las actividades de tu empresa..."
+                    />
+                  </div>
 
-            {formData.accionistas.map((acc, index) => renderAccionista(acc, index))}
+                  <div className="input-row">
+                    <div>
+                      <label className="label">Ciudad <span className="required">*</span></label>
+                      <input type="text" className="input" value={ciudadSociedad} onChange={(e) => setCiudadSociedad(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label">Dirección</label>
+                      <input type="text" className="input" value={direccionSociedad} onChange={(e) => setDireccionSociedad(e.target.value)} placeholder="Calle/Carrera..." />
+                    </div>
+                  </div>
 
-            <div style={{
-              background: totalPorcentaje === 100 ? '#f0fdf4' : '#fef3c7',
-              border: `1px solid ${totalPorcentaje === 100 ? '#86efac' : '#fcd34d'}`,
-              borderRadius: '10px',
-              padding: '16px',
-              marginBottom: '20px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
-              <span style={{fontWeight: '500'}}>Total participación:</span>
-              <span style={{
-                fontWeight: '700',
-                fontSize: '20px',
-                color: totalPorcentaje === 100 ? '#16a34a' : '#d97706',
-              }}>
-                {totalPorcentaje}%
-              </span>
-            </div>
+                  <div className="input-row">
+                    <div>
+                      <label className="label">Teléfono</label>
+                      <input type="tel" className="input" value={telefonoSociedad} onChange={(e) => setTelefonoSociedad(e.target.value)} placeholder="3001234567" />
+                    </div>
+                    <div>
+                      <label className="label">Email</label>
+                      <input type="email" className="input" value={emailSociedad} onChange={(e) => setEmailSociedad(e.target.value)} placeholder="contacto@empresa.com" />
+                    </div>
+                  </div>
 
-            <button
-              type="button"
-              style={styles.addBtn}
-              onClick={addAccionista}
-            >
-              + Agregar otro accionista
-            </button>
+                  <div className="capital-info">
+                    <div className="capital-title">💡 Capital Social</div>
+                    <p style={{fontSize: '14px', color: '#555', margin: 0}}>
+                      <strong>Autorizado:</strong> Límite máximo. <strong>Suscrito:</strong> Comprometido. <strong>Pagado:</strong> Aportado al inicio.
+                    </p>
+                  </div>
 
-            <div style={styles.buttonRow}>
-              <button 
-                type="button" 
-                style={styles.btnSecondary}
-                onClick={prevStep}
-              >
-                ← Anterior
-              </button>
-              <button 
-                type="button" 
-                style={styles.btnPrimary}
-                onClick={nextStep}
-              >
-                Continuar →
-              </button>
-            </div>
-          </>
-        )}
+                  <div className="capital-grid">
+                    {[
+                      { key: 'startup', label: 'Startup', desc: '100M / 1M' },
+                      { key: 'pyme', label: 'PyME', desc: '500M / 50M' },
+                      { key: 'grande', label: 'Grande', desc: '1.000M / 100M' },
+                      { key: 'personalizado', label: 'Personalizado', desc: '...' },
+                    ].map(p => (
+                      <button 
+                        key={p.key} 
+                        type="button" 
+                        className={`capital-btn ${capitalPreset === p.key ? 'active' : ''}`}
+                        onClick={() => handleCapitalPreset(p.key)}
+                      >
+                        <div className="capital-label">{p.label}</div>
+                        <div className="capital-desc">{p.desc}</div>
+                      </button>
+                    ))}
+                  </div>
 
-        {/* Step 3: Confirmación */}
-        {currentStep === 3 && (
-          <>
-            <h2 style={styles.formTitle}>Confirma tu solicitud</h2>
-            <p style={styles.formSubtitle}>Revisa la información antes de enviar</p>
-
-            <div style={{background: '#f8f9fc', borderRadius: '12px', padding: '20px', marginBottom: '20px'}}>
-              <h3 style={{margin: '0 0 16px', color: '#232C54'}}>🏢 Datos de la empresa</h3>
-              <div style={{display: 'grid', gap: '8px'}}>
-                <div><strong>Nombre:</strong> {formData.nombreEmpresa} S.A.S.</div>
-                <div><strong>Objeto social:</strong> {formData.objetoSocial}</div>
-                <div><strong>Ciudad:</strong> {formData.ciudadSociedad}</div>
-                <div><strong>Capital pagado:</strong> {formatCurrency(formData.capitalPagado)}</div>
-              </div>
-            </div>
-
-            <div style={{background: '#f8f9fc', borderRadius: '12px', padding: '20px', marginBottom: '20px'}}>
-              <h3 style={{margin: '0 0 16px', color: '#232C54'}}>👥 Accionistas ({formData.accionistas.length})</h3>
-              {formData.accionistas.map((acc, i) => {
-                const isNatural = acc.tipoPersona === 'natural';
-                const nombre = isNatural ? acc.nombres : acc.razonSocial;
-                const doc = isNatural ? `${acc.tipoDocumento} ${acc.numeroDocumento}` : `NIT ${acc.nit}`;
-                
-                return (
-                  <div key={i} style={{
-                    padding: '12px',
-                    background: '#fff',
-                    borderRadius: '8px',
-                    marginBottom: '8px',
-                    border: acc.esGerente ? '2px solid #D85A2D' : '1px solid #e5e7eb',
-                  }}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                  {capitalPreset === 'personalizado' && (
+                    <div className="input-row-3">
                       <div>
-                        <div style={{fontWeight: '600'}}>
-                          {isNatural ? '👤' : '🏢'} {nombre || 'Sin nombre'}
+                        <label className="label">Autorizado</label>
+                        <input type="number" className="input" value={capitalAutorizado} onChange={(e) => setCapitalAutorizado(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="label">Suscrito</label>
+                        <input type="number" className="input" value={capitalSuscrito} onChange={(e) => setCapitalSuscrito(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="label">Pagado</label>
+                        <input type="number" className="input" value={capitalPagado} onChange={(e) => setCapitalPagado(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="btn-row">
+                    <button type="button" className="btn-gray" onClick={() => setCurrentView('landing')}>← Volver</button>
+                    <button type="button" className="btn-orange" onClick={nextStep}>Continuar →</button>
+                  </div>
+                </>
+              )}
+
+              {/* PASO 2 */}
+              {currentStep === 2 && (
+                <>
+                  <h2 className="form-title">Accionistas</h2>
+                  <p className="form-subtitle">Agrega personas naturales o jurídicas</p>
+
+                  {accionistas.map((acc, index) => (
+                    <div key={acc.id} className={`accionista-card ${acc.esGerente ? 'gerente' : ''}`}>
+                      <div className="accionista-header">
+                        <div className="accionista-title">
+                          👤 Accionista {index + 1}
+                          {acc.esGerente && <span className="badge badge-gerente">👔 Gerente</span>}
                         </div>
-                        <div style={{fontSize: '13px', color: '#666'}}>{doc}</div>
-                        {!isNatural && acc.repLegalNombres && (
-                          <div style={{fontSize: '13px', color: '#666'}}>
-                            Rep. Legal: {acc.repLegalNombres}
-                          </div>
+                        {accionistas.length > 1 && (
+                          <button type="button" className="btn-remove" onClick={() => removeAccionista(index)}>✕ Eliminar</button>
                         )}
                       </div>
-                      <div style={{textAlign: 'right'}}>
-                        <div style={{fontWeight: '700', color: '#D85A2D'}}>{acc.porcentaje}%</div>
-                        {acc.esGerente && <div style={{fontSize: '12px', color: '#d97706'}}>👔 Gerente</div>}
+
+                      <div className="tipo-persona">
+                        <button type="button" className={`tipo-btn ${acc.tipoPersona === 'natural' ? 'active' : ''}`} onClick={() => updateAccionista(index, 'tipoPersona', 'natural')}>
+                          <div className="tipo-icon">👤</div>
+                          <div className="tipo-label">Persona Natural</div>
+                        </button>
+                        <button type="button" className={`tipo-btn ${acc.tipoPersona === 'juridica' ? 'active' : ''}`} onClick={() => updateAccionista(index, 'tipoPersona', 'juridica')}>
+                          <div className="tipo-icon">🏢</div>
+                          <div className="tipo-label">Persona Jurídica</div>
+                        </button>
+                      </div>
+
+                      {acc.tipoPersona === 'natural' ? (
+                        <>
+                          <div className="input-row">
+                            <div>
+                              <label className="label">Nombres y apellidos <span className="required">*</span></label>
+                              <input type="text" className="input" value={acc.nombres} onChange={(e) => updateAccionista(index, 'nombres', e.target.value)} placeholder="Juan Carlos Pérez" />
+                            </div>
+                            <div>
+                              <label className="label">Nacionalidad</label>
+                              <input type="text" className="input" value={acc.nacionalidad} onChange={(e) => updateAccionista(index, 'nacionalidad', e.target.value)} />
+                            </div>
+                          </div>
+                          <div className="input-row-3">
+                            <div>
+                              <label className="label">Tipo Doc</label>
+                              <select className="input" value={acc.tipoDocumento} onChange={(e) => updateAccionista(index, 'tipoDocumento', e.target.value)}>
+                                <option value="CC">Cédula</option>
+                                <option value="CE">Cédula Extranjería</option>
+                                <option value="PA">Pasaporte</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="label">Número <span className="required">*</span></label>
+                              <input type="text" className="input" value={acc.numeroDocumento} onChange={(e) => updateAccionista(index, 'numeroDocumento', e.target.value)} />
+                            </div>
+                            <div>
+                              <label className="label">Expedido en</label>
+                              <input type="text" className="input" value={acc.lugarExpedicion} onChange={(e) => updateAccionista(index, 'lugarExpedicion', e.target.value)} />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="input-row">
+                            <div>
+                              <label className="label">Razón Social <span className="required">*</span></label>
+                              <input type="text" className="input" value={acc.razonSocial} onChange={(e) => updateAccionista(index, 'razonSocial', e.target.value)} placeholder="INVERSIONES ABC S.A.S." />
+                            </div>
+                            <div>
+                              <label className="label">NIT <span className="required">*</span></label>
+                              <input type="text" className="input" value={acc.nit} onChange={(e) => updateAccionista(index, 'nit', e.target.value)} placeholder="900123456-7" />
+                            </div>
+                          </div>
+                          <div className="rep-legal-box">
+                            <div className="rep-legal-title">👔 Representante Legal</div>
+                            <div className="input-row">
+                              <div>
+                                <label className="label">Nombres <span className="required">*</span></label>
+                                <input type="text" className="input" value={acc.repLegalNombres} onChange={(e) => updateAccionista(index, 'repLegalNombres', e.target.value)} />
+                              </div>
+                              <div>
+                                <label className="label">Cédula <span className="required">*</span></label>
+                                <input type="text" className="input" value={acc.repLegalCedula} onChange={(e) => updateAccionista(index, 'repLegalCedula', e.target.value)} />
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      <div className="input-row">
+                        <div>
+                          <label className="label">Ciudad domicilio</label>
+                          <input type="text" className="input" value={acc.ciudadDomicilio} onChange={(e) => updateAccionista(index, 'ciudadDomicilio', e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="label">Dirección</label>
+                          <input type="text" className="input" value={acc.direccionResidencia} onChange={(e) => updateAccionista(index, 'direccionResidencia', e.target.value)} />
+                        </div>
+                      </div>
+
+                      <div className="input-row-3">
+                        <div>
+                          <label className="label">Email <span className="required">*</span></label>
+                          <input type="email" className="input" value={acc.email} onChange={(e) => updateAccionista(index, 'email', e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="label">Teléfono</label>
+                          <input type="tel" className="input" value={acc.telefono} onChange={(e) => updateAccionista(index, 'telefono', e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="label">% Participación <span className="required">*</span></label>
+                          <input type="number" className="input" value={acc.porcentaje} onChange={(e) => updateAccionista(index, 'porcentaje', e.target.value)} min="0" max="100" />
+                        </div>
+                      </div>
+
+                      <label className="checkbox-row">
+                        <input type="checkbox" className="checkbox" checked={acc.esGerente} onChange={(e) => updateAccionista(index, 'esGerente', e.target.checked)} />
+                        <span>Designar como Gerente (Representante Legal)</span>
+                      </label>
+
+                      <div>
+                        <label className="label">{acc.tipoPersona === 'natural' ? 'Documento de identidad' : 'RUT o Certificado'}</label>
+                        <div className={`upload-area ${uploadProgress[index] === 'done' ? 'done' : ''}`} onClick={() => document.getElementById(`file-${acc.id}`).click()}>
+                          <input id={`file-${acc.id}`} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{display: 'none'}} onChange={(e) => handleFileUpload(index, e.target.files[0])} />
+                          {uploadProgress[index] === 'done' ? (
+                            <span style={{color: '#22c55e', fontWeight: '600'}}>✓ {acc.documentoFileName}</span>
+                          ) : (
+                            <>
+                              <div className="upload-icon">📄</div>
+                              <div className="upload-text">Clic para subir (PDF, JPG, PNG)</div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  ))}
+
+                  <div className={`porcentaje-bar ${totalPorcentaje === 100 ? 'ok' : 'warning'}`}>
+                    <span>Total participación:</span>
+                    <span className={`porcentaje-value ${totalPorcentaje === 100 ? 'ok' : 'warning'}`}>{totalPorcentaje}%</span>
                   </div>
-                );
-              })}
+
+                  <button type="button" className="btn-add" onClick={addAccionista}>+ Agregar accionista</button>
+
+                  <div className="btn-row">
+                    <button type="button" className="btn-gray" onClick={prevStep}>← Anterior</button>
+                    <button type="button" className="btn-orange" onClick={nextStep}>Continuar →</button>
+                  </div>
+                </>
+              )}
+
+              {/* PASO 3 */}
+              {currentStep === 3 && (
+                <>
+                  <h2 className="form-title">Confirma tu solicitud</h2>
+
+                  <div className="summary-box">
+                    <h3 className="summary-title">🏢 Empresa</h3>
+                    <p><strong>Nombre:</strong> {nombreEmpresa} S.A.S.</p>
+                    <p><strong>Objeto:</strong> {objetoSocial}</p>
+                    <p><strong>Ciudad:</strong> {ciudadSociedad}</p>
+                    <p><strong>Capital:</strong> {formatCurrency(capitalPagado)}</p>
+                  </div>
+
+                  <div className="summary-box">
+                    <h3 className="summary-title">👥 Accionistas ({accionistas.length})</h3>
+                    {accionistas.map((acc, i) => (
+                      <div key={i} className={`summary-item ${acc.esGerente ? 'gerente' : ''}`}>
+                        <div>
+                          <strong>{acc.tipoPersona === 'natural' ? acc.nombres : acc.razonSocial}</strong>
+                          <div style={{fontSize: '13px', color: '#666'}}>{acc.tipoPersona === 'natural' ? `${acc.tipoDocumento} ${acc.numeroDocumento}` : `NIT ${acc.nit}`}</div>
+                        </div>
+                        <div style={{textAlign: 'right'}}>
+                          <div style={{fontWeight: '700', color: '#D85A2D'}}>{acc.porcentaje}%</div>
+                          {acc.esGerente && <div style={{fontSize: '12px', color: '#d97706'}}>👔 Gerente</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {tieneExtranjeros && (
+                    <div className="alert-warning">
+                      ⚠️ <strong>Hay accionistas extranjeros.</strong> Se requieren documentos adicionales.
+                    </div>
+                  )}
+
+                  <label className="policy-check">
+                    <input type="checkbox" className="policy-checkbox" checked={aceptaPolitica} onChange={(e) => setAceptaPolitica(e.target.checked)} />
+                    <span style={{fontSize: '14px'}}>
+                      Acepto la <a href="https://cdn.prod.website-files.com/68d59253eac398f3c33af169/69174eb3a1ff60c9541a18d2_Poli%CC%81tica%20de%20proteccio%CC%81n%20de%20Datos%20Due%20Legal%20(1).docx.pdf" target="_blank" rel="noopener noreferrer" className="policy-link">política de tratamiento de datos</a>
+                    </span>
+                  </label>
+
+                  <div className="btn-row">
+                    <button type="button" className="btn-gray" onClick={prevStep}>← Anterior</button>
+                    <button type="button" className="btn-orange" onClick={handleSubmit} disabled={isSubmitting} style={{opacity: isSubmitting ? 0.7 : 1}}>
+                      {isSubmitting ? '⏳ Enviando...' : '✓ Enviar solicitud'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* PASO 4 */}
+              {currentStep === 4 && (
+                <div className="success-card">
+                  <div className="success-icon">✓</div>
+                  <h2 style={{fontSize: '28px', color: '#232C54', marginBottom: '16px'}}>¡Solicitud enviada!</h2>
+                  <p style={{color: '#666', marginBottom: '32px'}}>Un abogado revisará tu información pronto.</p>
+                  <div className="tracking-display">
+                    <div style={{opacity: 0.8, marginBottom: '8px'}}>Tu código de seguimiento:</div>
+                    <div className="tracking-code">{trackingCode}</div>
+                  </div>
+                  <button className="btn-orange" onClick={() => { setCurrentView('landing'); setCurrentStep(1); }}>Volver al inicio</button>
+                </div>
+              )}
             </div>
-
-            {tieneExtranjeros && (
-              <div style={{
-                background: '#fef3c7',
-                border: '1px solid #fcd34d',
-                borderRadius: '10px',
-                padding: '16px',
-                marginBottom: '20px',
-              }}>
-                ⚠️ <strong>Hay accionistas extranjeros.</strong> Se requieren documentos adicionales para el proceso.
-              </div>
-            )}
-
-            <label style={styles.checkbox}>
-              <input
-                type="checkbox"
-                name="aceptaPolitica"
-                checked={formData.aceptaPolitica}
-                onChange={handleInputChange}
-                style={styles.checkboxInput}
-              />
-              <span style={{fontSize: '14px', color: '#555'}}>
-                Acepto la{' '}
-                <a 
-                  href="https://cdn.prod.website-files.com/68d59253eac398f3c33af169/69174eb3a1ff60c9541a18d2_Poli%CC%81tica%20de%20proteccio%CC%81n%20de%20Datos%20Due%20Legal%20(1).docx.pdf" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  style={styles.link}
-                >
-                  política de tratamiento de datos personales
-                </a>
-              </span>
-            </label>
-
-            <div style={styles.buttonRow}>
-              <button 
-                type="button" 
-                style={styles.btnSecondary}
-                onClick={prevStep}
-              >
-                ← Anterior
-              </button>
-              <button 
-                type="button" 
-                style={{
-                  ...styles.btnPrimary,
-                  opacity: isSubmitting ? 0.7 : 1,
-                }}
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? '⏳ Enviando...' : '✓ Enviar solicitud'}
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* Step 4: Éxito */}
-        {currentStep === 4 && (
-          <div style={styles.successCard}>
-            <div style={styles.successIcon}>✓</div>
-            <h2 style={{fontSize: '28px', color: '#232C54', marginBottom: '16px'}}>
-              ¡Solicitud enviada!
-            </h2>
-            <p style={{color: '#666', marginBottom: '32px'}}>
-              Hemos recibido tu información. Un abogado la revisará pronto.
-            </p>
-            
-            <div style={styles.trackingCodeDisplay}>
-              <div style={{marginBottom: '8px', opacity: 0.8}}>Tu código de seguimiento:</div>
-              <div style={styles.trackingCodeValue}>{trackingCode}</div>
-            </div>
-            
-            <p style={{fontSize: '14px', color: '#666', marginBottom: '32px'}}>
-              Guarda este código para consultar el estado de tu solicitud.
-              También te enviamos un email de confirmación.
-            </p>
-            
-            <button 
-              style={styles.btnPrimary}
-              onClick={resetForm}
-            >
-              Volver al inicio
-            </button>
           </div>
         )}
-      </div>
-    </div>
-  );
 
-  // ============================================================================
-  // TRACKING PAGE - V4.1: Con descarga de documentos
-  // ============================================================================
-  const TrackingPage = () => {
-    const getStatusColor = (estado) => {
-      const colors = {
-        'Recibida': { bg: '#e0f2fe', text: '#0369a1' },
-        'En revisión': { bg: '#fef3c7', text: '#d97706' },
-        'Documentos listos': { bg: '#d1fae5', text: '#059669' },
-        'Pendiente firma': { bg: '#fce7f3', text: '#be185d' },
-        'Pendiente pago': { bg: '#fee2e2', text: '#dc2626' },
-        'En Cámara': { bg: '#e0e7ff', text: '#4338ca' },
-        'Constituida': { bg: '#dcfce7', text: '#16a34a' },
-        'Cancelada': { bg: '#f3f4f6', text: '#6b7280' },
-      };
-      return colors[estado] || colors['Recibida'];
-    };
+        {/* TRACKING */}
+        {currentView === 'tracking' && (
+          <div className="tracking-container">
+            <div className="form-card">
+              <h2 className="form-title">Consulta tu solicitud</h2>
+              <p className="form-subtitle">Ingresa tu código de seguimiento</p>
 
-    return (
-      <div style={styles.formContainer}>
-        <div style={styles.formCard}>
-          <h2 style={styles.formTitle}>Consulta tu solicitud</h2>
-          <p style={styles.formSubtitle}>Ingresa tu código de seguimiento</p>
-          
-          <form onSubmit={handleTrackingSubmit} style={styles.trackingForm}>
-            <input
-              type="text"
-              name="codigo"
-              style={styles.trackingInput}
-              placeholder="Ej: DL-ABC123"
-              maxLength={10}
-            />
-            <button 
-              type="submit" 
-              style={styles.btnPrimary}
-              disabled={trackingLoading}
-            >
-              {trackingLoading ? '⏳' : '🔍'} Buscar
-            </button>
-          </form>
-          
-          {trackingError && (
-            <div style={{
-              background: '#fee2e2',
-              border: '1px solid #fecaca',
-              borderRadius: '10px',
-              padding: '16px',
-              color: '#dc2626',
-              marginBottom: '20px',
-            }}>
-              ❌ {trackingError}
-            </div>
-          )}
-          
-          {trackingData && (
-            <div style={{
-              background: '#f8f9fc',
-              borderRadius: '16px',
-              padding: '24px',
-            }}>
-              <div style={{textAlign: 'center', marginBottom: '24px'}}>
-                <div style={{fontSize: '14px', color: '#666', marginBottom: '8px'}}>Estado actual</div>
-                <span style={{
-                  ...styles.statusBadge,
-                  background: getStatusColor(trackingData.estado).bg,
-                  color: getStatusColor(trackingData.estado).text,
-                }}>
-                  {trackingData.estado}
-                </span>
-              </div>
-              
-              <div style={{display: 'grid', gap: '12px'}}>
-                <div style={{display: 'flex', justifyContent: 'space-between'}}>
-                  <span style={{color: '#666'}}>Código:</span>
-                  <strong>{trackingData.codigo}</strong>
-                </div>
-                <div style={{display: 'flex', justifyContent: 'space-between'}}>
-                  <span style={{color: '#666'}}>Empresa:</span>
-                  <strong>{trackingData.empresa}</strong>
-                </div>
-                {trackingData.nit && (
-                  <div style={{display: 'flex', justifyContent: 'space-between'}}>
-                    <span style={{color: '#666'}}>NIT:</span>
-                    <strong>{trackingData.nit}</strong>
+              <form onSubmit={handleTrackingSubmit} className="tracking-form">
+                <input type="text" name="codigo" className="tracking-input" placeholder="Ej: DL-ABC123" maxLength={10} />
+                <button type="submit" className="btn-orange" disabled={trackingLoading}>
+                  {trackingLoading ? '⏳' : '🔍'} Buscar
+                </button>
+              </form>
+
+              {trackingError && <div className="error-box">❌ {trackingError}</div>}
+
+              {trackingData && (
+                <div className="tracking-result">
+                  <div style={{textAlign: 'center', marginBottom: '24px'}}>
+                    <div style={{fontSize: '14px', color: '#666', marginBottom: '8px'}}>Estado actual</div>
+                    <span className="status-badge" style={{background: getStatusColor(trackingData.estado).bg, color: getStatusColor(trackingData.estado).text}}>{trackingData.estado}</span>
                   </div>
-                )}
-              </div>
-              
-              {/* SECCIÓN DE DOCUMENTOS DESCARGABLES - V4.1 */}
-              {trackingData.estado === 'Constituida' && (
-                <div style={styles.infoBox}>
-                  <div style={{fontWeight: '600', color: '#16a34a', marginBottom: '16px', fontSize: '18px'}}>
-                    🎉 ¡Tu empresa está constituida!
+                  <div className="tracking-info">
+                    <div className="tracking-row"><span style={{color: '#666'}}>Código:</span><strong>{trackingData.codigo}</strong></div>
+                    <div className="tracking-row"><span style={{color: '#666'}}>Empresa:</span><strong>{trackingData.empresa}</strong></div>
+                    {trackingData.nit && <div className="tracking-row"><span style={{color: '#666'}}>NIT:</span><strong>{trackingData.nit}</strong></div>}
                   </div>
-                  <p style={{color: '#666', marginBottom: '20px', fontSize: '14px'}}>
-                    Descarga los documentos de tu empresa:
-                  </p>
-                  
-                  {/* Certificado de Existencia */}
-                  {trackingData.certificadoUrl && (
-                    <div style={styles.documentCard}>
-                      <div style={styles.documentInfo}>
-                        <span style={styles.documentIcon}>📜</span>
-                        <span style={styles.documentName}>Certificado de Existencia y Rep. Legal</span>
-                      </div>
-                      <a 
-                        href={trackingData.certificadoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={styles.downloadBtn}
-                      >
-                        ⬇ Descargar
-                      </a>
-                    </div>
-                  )}
-                  
-                  {/* RUT */}
-                  {trackingData.rutUrl && (
-                    <div style={styles.documentCard}>
-                      <div style={styles.documentInfo}>
-                        <span style={styles.documentIcon}>📋</span>
-                        <span style={styles.documentName}>RUT</span>
-                      </div>
-                      <a 
-                        href={trackingData.rutUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={styles.downloadBtn}
-                      >
-                        ⬇ Descargar
-                      </a>
-                    </div>
-                  )}
-                  
-                  {/* Estados Financieros */}
-                  {trackingData.estadosFinancierosUrl && (
-                    <div style={styles.documentCard}>
-                      <div style={styles.documentInfo}>
-                        <span style={styles.documentIcon}>📊</span>
-                        <span style={styles.documentName}>Estados Financieros Iniciales</span>
-                      </div>
-                      <a 
-                        href={trackingData.estadosFinancierosUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={styles.downloadBtn}
-                      >
-                        ⬇ Descargar
-                      </a>
-                    </div>
-                  )}
-                  
-                  {/* Mensaje si no hay documentos aún */}
-                  {!trackingData.certificadoUrl && !trackingData.rutUrl && !trackingData.estadosFinancierosUrl && (
-                    <div style={{
-                      background: '#fff',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '10px',
-                      padding: '20px',
-                      textAlign: 'center',
-                      color: '#666',
-                    }}>
-                      Los documentos estarán disponibles pronto.<br/>
-                      Te notificaremos por email cuando estén listos.
+
+                  {trackingData.estado === 'Constituida' && (
+                    <div className="docs-box">
+                      <div className="docs-title">🎉 ¡Tu empresa está constituida!</div>
+                      {trackingData.certificadoUrl && (
+                        <div className="doc-item">
+                          <span>📜 Certificado de Existencia</span>
+                          <a href={trackingData.certificadoUrl} target="_blank" rel="noopener noreferrer" className="doc-link">⬇ Descargar</a>
+                        </div>
+                      )}
+                      {trackingData.rutUrl && (
+                        <div className="doc-item">
+                          <span>📋 RUT</span>
+                          <a href={trackingData.rutUrl} target="_blank" rel="noopener noreferrer" className="doc-link">⬇ Descargar</a>
+                        </div>
+                      )}
+                      {trackingData.estadosFinancierosUrl && (
+                        <div className="doc-item">
+                          <span>📊 Estados Financieros</span>
+                          <a href={trackingData.estadosFinancierosUrl} target="_blank" rel="noopener noreferrer" className="doc-link">⬇ Descargar</a>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               )}
+
+              <button type="button" className="btn-gray" style={{width: '100%', marginTop: '24px'}} onClick={() => setCurrentView('landing')}>← Volver al inicio</button>
             </div>
-          )}
-          
-          <button 
-            type="button"
-            style={{...styles.btnSecondary, marginTop: '24px', width: '100%'}}
-            onClick={() => setCurrentView('landing')}
-          >
-            ← Volver al inicio
-          </button>
-        </div>
+          </div>
+        )}
+
+        {/* FOOTER */}
+        <footer className="footer">
+          <div className="footer-logo">Due Legal</div>
+          <p className="footer-text">Simplificamos el derecho para tu empresa</p>
+          <div className="footer-copy">© 2026 Due Legal. Todos los derechos reservados.</div>
+        </footer>
       </div>
-    );
-  };
-
-  // ============================================================================
-  // RENDER PRINCIPAL
-  // ============================================================================
-  return (
-    <div style={styles.container}>
-      {currentView !== 'landing' && (
-        <header style={styles.header}>
-          <div style={styles.logo}>Due Legal</div>
-          <button 
-            style={styles.backBtn}
-            onClick={() => setCurrentView('landing')}
-          >
-            ← Inicio
-          </button>
-        </header>
-      )}
-
-      {currentView === 'landing' && (
-        <header style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          padding: '20px 24px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          zIndex: 10,
-        }}>
-          <div style={{...styles.logo, color: '#fff'}}>Due Legal</div>
-        </header>
-      )}
-
-      {currentView === 'landing' && <LandingPage />}
-      {currentView === 'form' && <FormWizard />}
-      {currentView === 'tracking' && <TrackingPage />}
-
-      <footer style={{
-        background: '#232C54',
-        color: '#fff',
-        padding: '40px 24px',
-        textAlign: 'center',
-      }}>
-        <div style={{fontSize: '20px', fontWeight: '700', marginBottom: '12px'}}>Due Legal</div>
-        <p style={{opacity: 0.7, marginBottom: '16px'}}>
-          Simplificamos el derecho para tu empresa
-        </p>
-        <div style={{fontSize: '14px', opacity: 0.5}}>
-          © 2026 Due Legal. Todos los derechos reservados.
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }
